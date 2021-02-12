@@ -1,0 +1,6 @@
+- 1-2:
+ title: "a first entry"
+ contents: "exciting contents"
+- 1-3:
+ title: "another entry"
+ contents: "this is like wow\n [back](&1-2&)"
