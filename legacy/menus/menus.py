@@ -106,6 +106,7 @@ async def create_message(e): #c is channel we are working on
 async def swap_codes(m,links):
     em=m.embeds[0] # for now we support only a single embed
     thefield=em.fields[0]
+    print("the embeds:",m.embeds[0])
     thevalue=thefield.value
     em.fields[0].value=tehvalue+"a change" #here we do the swap magic
     await m.edit(embed=em)
