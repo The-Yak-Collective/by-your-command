@@ -88,7 +88,7 @@ async def init_bot():
     links={}
     for entry in entries:
         m=await create_message(entry)
-        links[entry['code']]=m
+        links[entry['entry']]=m
     for key in links:
         await swap_codes(links[key],links) #does message.edit
 
@@ -100,7 +100,7 @@ async def delete_all_messages(x): #for now, only bot messages
     
 async def create_message(e): #c is channel we are working on
     embed=discord.Embed(color=0xd12323)
-    embed.add_field(name=e.title, value=e.contents, inline=False)
+    embed.add_field(name=e['title'], value=e['contents'], inline=False)
     return await help_chan.send(embed=embed)
 
 async def swap_codes(m,links):
