@@ -110,8 +110,11 @@ async def swap_codes(m,links):
     thefield=em.fields[0]
     thevalue=thefield.value #.replace('&[','[')
     parts=thevalue.split('&<')
+    print("the parts",parts)
+    print("the links:",links)
     for i,p in enumerate(parts):
         if '>&' in p:
+            print("found:",p)
             pos=p.index(">&")
             parts[i]=links[p[:pos]].jump_url+p[pos+2]
         else:
