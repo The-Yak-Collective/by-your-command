@@ -123,7 +123,7 @@ async def project_uitest(ctx):
     
 @bot.command(name='uploadmenu', help='upload a menu file')
 async def uploadmenu(ctx):
-    ctx.send("for now not implemented)
+    ctx.send("for now not implemented")
 
 
 async def dmchan(t):
