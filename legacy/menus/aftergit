@@ -1,9 +1,9 @@
 #actions to do after pull to complete deploy. 
-exec >~/robot/project_ui/logfileofpostmerge
+exec >~/robot/menus/logfileofpostmerge
 exec 2>&1
 set -x
 set -v
-ps ax | grep 'project_ui' | awk '{printf $1 " "}'
-kill -9 $(ps ax | grep 'project_ui.py' | awk '{printf $1 " "}')
-nohup python3 ~/robot/project_ui/project_ui.py 2>&1 &
+ps ax | grep 'menus' | awk '{printf $1 " "}'
+kill -9 $(ps ax | grep 'menus.py' | awk '{printf $1 " "}')
+nohup python3 ~/robot/menus/menus.py 2>&1 &
 exit
