@@ -108,7 +108,7 @@ async def swap_codes(m,links):
     thefield=em.fields[0]
     print("the embeds:",m.embeds[0])
     thevalue=thefield.value
-    em.fields[0].value=tehvalue+"a change" #here we do the swap magic
+    em.fields[0].value=thevalue+"a change" #here we do the swap magic; later
     await m.edit(embed=em)
 
 #@bot.event #seems event eats the events that command uses. but it is not really needed, either
