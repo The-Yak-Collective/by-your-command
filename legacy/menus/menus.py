@@ -100,7 +100,7 @@ async def delete_all_messages(x): #for now, only bot messages
     
 async def create_message(e): #c is channel we are working on
     embed=discord.Embed(color=0xd12323)
-    temp=e['contents'].replace('[','&[') # so it will not be parsed at first run
+    temp=e['contents'] #.replace('[','&[') # so it will not be parsed at first run
     embed.add_field(name=e['title'], value=temp, inline=False)
     return await help_chan.send(embed=embed)
 
@@ -108,13 +108,14 @@ async def swap_codes(m,links):
     em=m.embeds[0] # for now we support only a single embed
     thefield=em.fields[0]
     print("the embeds:",m.embeds[0],m.embeds[0].fields[0],m.embeds[0].fields[0].value)
-    thevalue=thefield.value.replace('&[','[')
+    thevalue=thefield.value #.replace('&[','[')
     parts=thevalue.split('&<')
     print("the parts:",parts)
     for i,p in enumerate(parts):
         try:
             pos=p.index(">&")
-            parts[i]=links[p[:pos-1]]+p[pos+2]
+            print('found:',p[:pos-1].jump_url)
+            parts[i]=links[p[:pos-1]].jump_url+p[pos+2]
         except:
             pass
     thenewvalue="".join(parts)
