@@ -8,5 +8,5 @@
   title: "another *entry*"
   contents: "this is like wow\n [back](&<1-3>&)"
 - entry: 125
-  title: "another *entry*"
-  contents: "this is like wow\n [back](&<123>&)"
+  title: "yet another *entry*"
+  contents: "meh\n [back](&<123>&)"
