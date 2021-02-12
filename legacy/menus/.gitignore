@@ -1,5 +1,6 @@
 #menu.yaml - is now uploaded via bot itself
 menu.yaml
+menu_default.yaml
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
