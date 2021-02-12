@@ -131,10 +131,10 @@ async def project_uitest(ctx):
     
 @bot.command(name='uploadmenu', help='upload a menu file')
 async def uploadmenu(ctx):
-    if (len(message.attachments)>0):
+    if (len(ctx.message.attachments)>0):
         print('has attachment')
         with open(LOCALDIR+"/menu.yaml",'w') as f:
-            await message.attachments[0].save(f)
+            await ctx.message.attachments[0].save(f)
         init_bot()
     else:
         await ctx.send('''
