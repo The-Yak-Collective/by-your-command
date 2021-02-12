@@ -30,6 +30,7 @@ import datetime
 import emoji
 import subprocess
 import re, string
+import tempfile
 
 
 from dotenv import load_dotenv
@@ -133,8 +134,8 @@ async def project_uitest(ctx):
 async def uploadmenu(ctx):
     if (len(ctx.message.attachments)>0):
         print('has attachment')
-        #with open(LOCALDIR+"/menu.yaml",'w') as f:
-        await ctx.message.attachments[0].save(LOCALDIR+"/menu.yaml")
+        with open(LOCALDIR+"/menu.yaml",'wb') as f:
+            await ctx.message.attachments[0].save(f)
         init_bot()
     else:
         await ctx.send('''
