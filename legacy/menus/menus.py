@@ -135,7 +135,7 @@ async def uploadmenu(ctx):
     if (len(ctx.message.attachments)>0):
         print('has attachment')
         with open(LOCALDIR+"/menu.yaml",'wb') as f:
-            await ctx.message.attachments[0].save(f)
+            await ctx.message.attachments[0].save(f)#probbaly also works if we save direct to file name, not f
         init_bot()
     else:
         await ctx.send('''
