@@ -89,7 +89,6 @@ async def init_bot():
     for entry in entries:
         m=await create_message(entry)
         links[entry['entry']]=m
-    print('the links are:',links)
     for key in links:
         await swap_codes(links[key],links) #does message.edit
 
@@ -108,18 +107,14 @@ async def create_message(e): #c is channel we are working on
 async def swap_codes(m,links):
     em=m.embeds[0] # for now we support only a single embed
     thefield=em.fields[0]
-    print("the embeds:",m.embeds[0],m.embeds[0].fields[0],m.embeds[0].fields[0].value)
     thevalue=thefield.value #.replace('&[','[')
     parts=thevalue.split('&<')
-    print("the parts:",parts)
-    print('the links:', links)
     for i,p in enumerate(parts):
         if '>&' in p:
             pos=p.index(">&")
-            print('found:',p[:pos])
             parts[i]=links[p[:pos]].jump_url+p[pos+2]
         else:
-            print(p)
+            pass
     thenewvalue="".join(parts)
     em.set_field_at(0, name=thefield.name,value=thenewvalue)
     await m.edit(embed=em)
@@ -136,7 +131,23 @@ async def project_uitest(ctx):
     
 @bot.command(name='uploadmenu', help='upload a menu file')
 async def uploadmenu(ctx):
-    ctx.send("for now not implemented")
+    if (len(message.attachments)>0):
+        print('has attachment')
+        with open(LOCALDIR+"/menu.yaml",'w') as f:
+            await message.attachments[0].save(f)
+        init_bot()
+    else:
+        await ctx.send('''
+        please provide a file to upload; in yaml format with special links format, example:\name
+- entry: 1-2
+  title: "a first entry"
+  contents: "**exciting** contents\n goto [other entry](&<1-3>&)"
+- entry: 1-3
+  title: "another *entry*"
+  contents: "this is like wow\n [back](&<1-2>&)"''')
+
+    return
+    await ctx.send("for now not implemented")
 
 
 async def dmchan(t):
