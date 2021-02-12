@@ -112,12 +112,12 @@ async def swap_codes(m,links):
     parts=thevalue.split('&<')
     print("the parts:",parts)
     for i,p in enumerate(parts):
-        try:
+        if '>&' in p:
             pos=p.index(">&")
             print('found:',p[:pos-1].jump_url)
             parts[i]=links[p[:pos-1]].jump_url+p[pos+2]
-        except:
-            pass
+        else:
+            print(p)
     thenewvalue="".join(parts)
     em.set_field_at(0, name=thefield.name,value=thenewvalue)
     await m.edit(embed=em)
