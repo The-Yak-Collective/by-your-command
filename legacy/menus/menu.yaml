@@ -4,3 +4,9 @@
 - entry: 1-3
   title: "another *entry*"
   contents: "this is like wow\n [back](&<1-2>&)"
+- entry: 123
+  title: "another *entry*"
+  contents: "this is like wow\n [back](&<1-3>&)"
+- entry: 125
+  title: "another *entry*"
+  contents: "this is like wow\n [back](&<123>&)"
