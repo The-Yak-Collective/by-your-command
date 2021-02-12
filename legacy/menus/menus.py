@@ -138,13 +138,13 @@ async def uploadmenu(ctx):
         init_bot()
     else:
         await ctx.send('''
-        please provide a file to upload; in yaml format with special links format, example:\name
+        please provide a file to upload; in yaml format with special links format, example:\n```
 - entry: 1-2
   title: "a first entry"
   contents: "**exciting** contents\n goto [other entry](&<1-3>&)"
 - entry: 1-3
   title: "another *entry*"
-  contents: "this is like wow\n [back](&<1-2>&)"''')
+  contents: "this is like wow\n [back](&<1-2>&)"```''')
 
     return
     await ctx.send("for now not implemented")
