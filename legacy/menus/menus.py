@@ -89,6 +89,7 @@ async def init_bot():
     for entry in entries:
         m=await create_message(entry)
         links[entry['entry']]=m
+    print('the links are:',links)
     for key in links:
         await swap_codes(links[key],links) #does message.edit
 
