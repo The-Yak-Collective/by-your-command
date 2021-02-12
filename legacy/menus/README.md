@@ -11,6 +11,20 @@
 
 special format: [](&<code>&) means put in a link to code
 
+example:```
+- entry: 1-2
+  title: "a first entry v2"
+  contents: "**exciting default** contents\n goto [other entry](&<1-3>&)"
+- entry: 1-3
+  title: "another *default entry*"
+  contents: "this is like wow\n [back](&<1-2>&)"
+- entry: 123
+  title: "another *entry*"
+  contents: "this is like wow\n [back](&<1-3>&)"
+- entry: 125
+  title: "yet another *entry*"
+  contents: "meh\n [back](&<123>&)"
+```
 program logic: scan once to create tree, then create messages in predefined channel (that others cannot do anything to) with the embeded special format, then update the codes IN THE MESSAGES with correct message links
 
 
