@@ -116,7 +116,7 @@ async def swap_codes(m,links):
         if '>&' in p:
             print("found:",p)
             pos=p.index(">&")
-            thelink=links.get(p[:pos],"_error"))
+            thelink=links.get(p[:pos],"_error")
             if thelink=="_error":
                 tweak_chan.send("syntax error in menu.yaml file")
             else:
