@@ -152,6 +152,11 @@ async def uploadmenu(ctx):
 
     return
     await ctx.send("for now not implemented")
+    
+@bot.command(name='downloadmenu', help='download the current menu file - e.g., if you want to edit it')
+async def downloadmenu(ctx):
+    await ctx.send("current menu file:", file=discord.File(LOCALDIR+"/menu.yaml"))
+    return
 
 
 async def dmchan(t):
