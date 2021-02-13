@@ -116,7 +116,7 @@ async def swap_codes(m,links):
         if '>&' in p:
             print("found:",p)
             pos=p.index(">&")
-            parts[i]=links[p[:pos]].jump_url+p[pos+2]
+            parts[i]=links[p[:pos]].jump_url+p[pos+2:]
         else:
             pass
     thenewvalue="".join(parts)
