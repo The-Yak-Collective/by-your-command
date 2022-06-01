@@ -217,8 +217,8 @@ async def on_ready():
 #    m= await tree.sync()
     tree.add_command(pstest())#need to be added manually for some reason
     tree.add_command(pscourse())#need to be added manually for some reason
-    tree.add_command(psprompt())#need to be added manually for some reason
-    tree.add_command(psresponse())#need to be added manually for some reason
+    #tree.add_command(psprompt())#need to be added manually for some reason
+    #tree.add_command(psresponse())#need to be added manually for some reason
     tree.copy_global_to(guild=client.guilds[0]) #the commands were probably defined as global
     print(client.guilds[0],client.guilds[0].id)
     m= await tree.sync(guild=client.guilds[0])
