@@ -140,11 +140,11 @@ async def psrecall(interaction: discord.Interaction):
     
 class test(app_commands.Group):
     @app_commands.command(name="echo")
-    @app_commands.describe(name="the text")
+    @app_commands.describe(echome="the text to echo")
     async def test_echo(self,interaction:discord.Interaction,txt:str):
         await interaction.response.send_message(f'test echo {txt=}', ephemeral=True)
     @app_commands.command(name="doubleecho")
-    @app_commands.describe(name="the text")
+    @app_commands.describe(echome="the text to double echo")
     async def test_double_echo(self,interaction:discord.Interaction,txt:str):
         await interaction.response.send_message(f'test doubleecho {txt=}{txt=}', ephemeral=True)
 
