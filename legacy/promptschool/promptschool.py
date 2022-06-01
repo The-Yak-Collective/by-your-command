@@ -198,6 +198,7 @@ class psprompt(app_commands.Group):
         one.creatorid=interaction.user.id
         putrecord("prompts",one)
         await interaction.response.send_message("updated prompt contents", ephemeral=True)
+        await splitsend(interaction.channel,"new prompt set for channel:\n"+theprompt,False)
         return
 
     @app_commands.command(name="recall",description="show prompt topic, private")
@@ -207,7 +208,7 @@ class psprompt(app_commands.Group):
         if not one:
             await interaction.response.send_message("you need to run recall from within a prompt-thread", ephemeral=True)
             return
-        await interaction.response.send_message("the prompt by @<{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=True)
+        await interaction.response.send_message("the prompt by <@{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=True)
         return
 
     @app_commands.command(name="show",description="show course topic")
@@ -217,11 +218,50 @@ class psprompt(app_commands.Group):
         if not one:
             await interaction.response.send_message("you need to run show from within a prompt-thread", ephemeral=True)
             return
-        await interaction.response.send_message("the prompt by @<{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=False)
+        await interaction.response.send_message("the prompt by <@{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=False)
         return
 
-#class psresponse(app_commands.Group):
-    
+class psresponse(app_commands.Group):
+    @app_commands.command(name="submit",description="create and submit a response to the prompt")
+    @app_commands.describe(theresponse="your response to teh prompt, can be text or a link or both. files not supported, yet")
+    async def response_submit(self,interaction:discord.Interaction,resp:str):
+        cur_chan_id=interaction.channel.id
+        one=getonerecord("prompts",cur_chan_id)
+        if not one:
+            await interaction.response.send_message("you need to send response from within a prompt-thread ", ephemeral=True)
+            return
+        #do not care if it already exists.
+
+        one=standardrecord()
+        one.parentid=cur_chan_id
+        one.id=int(time.time()) #just need a number, this has no real meaning as we search by creator and thread id
+        one.creatorid=interaction.user.id
+        one.contents=resp
+        putrecord("responses",one)
+        await interaction.response.send_message("submitted response. do you want to share? /psresponse show. want to edit? /psresponse submit again.", ephemeral=True)
+        return
+
+
+    @app_commands.command(name="recall",description="show submission, private")
+    async def response_recall(self,interaction:discord.Interaction):
+        cur_chan_id=interaction.channel.id
+        one=getqonerecord("responses",parentid=cur_chan_id,creatorid=interaction.user.id)
+        if not one:
+            await interaction.response.send_message("failure to retrieve. you need to run recall from within a prompt-thread or you have not yet submitted a response", ephemeral=True)
+            return
+        await interaction.response.send_message("the response by <@{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=True)
+        return
+
+    @app_commands.command(name="show",description="show submission, publicly")
+    async def response_show(self,interaction:discord.Interaction):
+        cur_chan_id=interaction.channel.id
+        one=getqonerecord("responses",parentid=cur_chan_id,creatorid=interaction.user.id)
+        if not one:
+            await interaction.response.send_message("failure to retrieve. you need to run recall from within a prompt-thread or you have not yet submitted a response", ephemeral=True)
+            return
+        await interaction.response.send_message("the response by <@{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=False)
+        return
+
 #class pshint(app_commands.Group):#not implemented yet
 
 class pstest(app_commands.Group): #not being added anymore?
@@ -242,7 +282,8 @@ async def on_ready():
     tree.add_command(pscourse())#need to be added manually for some reason
     tree.add_command(pstest())#need to be added manually for some reason
     tree.add_command(psprompt())#need to be added manually for some reason
-    #tree.add_command(psresponse())#need to be added manually for some reason
+    tree.add_command(psresponse())#need to be added manually for some reason
+#    tree.add_command(pshint())#need to be added manually for some reason
     tree.copy_global_to(guild=client.guilds[0]) #the commands were probably defined as global
     print(client.guilds[0],client.guilds[0].id)
     m= await tree.sync(guild=client.guilds[0])
