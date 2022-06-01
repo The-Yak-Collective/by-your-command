@@ -62,7 +62,9 @@ def putrecord(tab, rec):
     conn.commit()
 def getonerecord(tab, id):
     one=standardrecord()
-    return one.set(db_c.execute('select contents from {} where id=? order by seq desc'.format(tab),(id,)).fetchone())
+    res=db_c.execute('select contents from {} where id=? order by seq desc'.format(tab),(id,)).fetchone()
+    print(id,res)
+    return one.set(res)
 def getallrecords(tab, id):
     rows=db_c.execute('select contents from {} where id=? order by seq desc'.format(tab),(id,)).fetchall()
     man=[]
