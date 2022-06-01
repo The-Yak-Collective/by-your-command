@@ -53,7 +53,7 @@ class standardrecord:
         self.other=rawrecord[9] #some other data. not used
         return (self)
     def totuple(self):
-        return(self.seq, self.id, self.creatorid,self.contents,self.filled,self.filledat,self.parentid,self.mlink,self.other)
+        return(self.seq, self.id, self.creatorid,self.contents,self.filled,self.createdat,self.filledat,self.parentid,self.mlink,self.other)
 
 def putrecord(tab, rec):
     rec.createdat=int(time.time())
