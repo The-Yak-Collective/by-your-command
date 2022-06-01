@@ -75,6 +75,7 @@ async def pstest(interaction: discord.Interaction, echome: str):
 async def on_ready(): 
 #    tree.copy_global_to(guild=client.guilds[0])
 #    m= await tree.sync()
+    tree.copy_global_to(guild=client.guilds[0]) #the commands were probably defined as global
     print(client.guilds[0],client.guilds[0].id)
     m= await tree.sync(guild=client.guilds[0])
     print([x.name for x in m])
