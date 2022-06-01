@@ -146,7 +146,7 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         if not one:
             await interaction.response.send_message("you need to run recall from within the course channel", ephemeral=True)
             return
-        await interaction.response.send_message("course topic is:\n".format(one.contents), ephemeral=True)
+        await interaction.response.send_message("course topic is:\n{}".format(one.contents), ephemeral=True)
         return
 
     @app_commands.command(name="show",description="show course topic")
@@ -156,7 +156,7 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         if not one:
             await interaction.response.send_message("you need to run show from within the course channel", ephemeral=True)
             return
-        await interaction.response.send_message("course topic is:\n".format(one.contents), ephemeral=False)
+        await interaction.response.send_message("course topic is:\n{}".format(one.contents), ephemeral=False)
         return
 
 #class psprompt(app_commands.Group):
