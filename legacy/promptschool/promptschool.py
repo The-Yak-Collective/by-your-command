@@ -138,7 +138,7 @@ async def psrecall(interaction: discord.Interaction):
     await interaction.response.send_message("the prompt:\n"+rows[0], ephemeral=True)
     return
     
-class test(app_commands.Group)
+class test(app_commands.Group):
     @app_commands.command(name="echo")
     @app_commands.describe(name="the text")
     async test_echo(self,interaction:discord.Interaction,txt:str))
