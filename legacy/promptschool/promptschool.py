@@ -41,7 +41,7 @@ async def psset(interaction: discord.Interaction, theprompt: str):
     await interaction.response.send_message("hope you like your prompt!", ephemeral=True)
     return
 
-@tree.command( description="private reminder of the current prompt of this for ongoing discussions")
+@tree.command( description="ephemeral reminder of the current prompt of this for ongoing discussions")
 async def psrecall(interaction: discord.Interaction):
     try:
         rows=db_c.execute('select contents from prompts where chan=? order by  promptid desc',(interaction.channel_id,)).fetchone()
