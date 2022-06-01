@@ -170,7 +170,7 @@ async def durl2m(u): #needs to be redone for thread...
 def checkon_database(): 
 #check if table exists in DB. if not, create it
     for tab in LISTOFTABLES:
-        db_c.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name={} '''.format(tab))
+        db_c.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name=? ''',(tab,))
         if db_c.fetchone()[0]!=1:
             db_c.execute('''CREATE TABLE {0} (seq INTEGER PRIMARY KEY, id int, creatorid text, contents text, filled int, createdat int, filledat int, parentid int, mlink text, other text)'''.format(tab)) 
             #filled=is it active
