@@ -185,7 +185,7 @@ class psprompt(app_commands.Group):
 
     @app_commands.command(name="set",description="set prompt contents")
     @app_commands.describe(theprompt="the contents of the prompt, markdown allowed.")
-    async def course_set(self,interaction:discord.Interaction,topic:str):
+    async def prompt_set(self,interaction:discord.Interaction,theprompt:str):
         cur_chan_id=interaction.channel.id
         one=getonerecord("prompts",cur_chan_id)
         if not one:
@@ -199,7 +199,7 @@ class psprompt(app_commands.Group):
         return
 
     @app_commands.command(name="recall",description="show prompt topic, private")
-    async def course_recall(self,interaction:discord.Interaction):
+    async def prompt_recall(self,interaction:discord.Interaction):
         cur_chan_id=interaction.channel.id
         one=getonerecord("prompts",cur_chan_id)
         if not one:
@@ -209,7 +209,7 @@ class psprompt(app_commands.Group):
         return
 
     @app_commands.command(name="show",description="show course topic")
-    async def course_show(self,interaction:discord.Interaction):
+    async def prompt_show(self,interaction:discord.Interaction):
         cur_chan_id=interaction.channel.id
         one=getonerecord("prompts",cur_chan_id)
         if not one:
