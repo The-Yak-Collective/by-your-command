@@ -194,8 +194,10 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         await interaction.response.send_message("course topic is:\n".format(one.contents), ephemeral=False)
         return
 
-class psprompt(app_commands.Group):
-class psresponse(app_commands.Group):
+#class psprompt(app_commands.Group):
+
+#class psresponse(app_commands.Group):
+    
 #class pshint(app_commands.Group):#not implemented yet
 
 class pstest(app_commands.Group): #not being added anymore?
