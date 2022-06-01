@@ -172,7 +172,8 @@ class psprompt(app_commands.Group):
         #do not care if it already exists.
         #create thread with name name under current channel
         channel=await client.guilds[0].fetch_channel(cur_chan_id)
-        thread=await channel.create_thread(name, type=discord.ChannelType.public_thread)
+        tempmess=channel.send("now opening a new prompt thread {}".format(name))
+        thread=await channel.create_thread(name, message=tempmess)
         #create record with the data parentID=cur_chan_id
         one=standardrecord()
         one.parentid=cur_chan_id
@@ -191,6 +192,7 @@ class psprompt(app_commands.Group):
         if not one:
             await interaction.response.send_message("you need to run set from within a prompt-thread", ephemeral=True)
             return
+
         #in future pin a message with the prompt
         one.contents=theprompt
         one.creatorid=interaction.user.id
