@@ -119,7 +119,7 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         one.creatorid=interaction.user.id
         one.contents="no description provided yet. use /pscourse set command"
         putrecord("courses",one)
-        await interaction.response.send_message("created course {} in the prompt school catagory".format(name), ephemeral=True)
+        await interaction.response.send_message("created course {} in the prompt school category".format(name), ephemeral=True)
         return
     @app_commands.command(name="set",description="set course topic")
     @app_commands.describe(topic="a description of what the course is about")
@@ -135,6 +135,7 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         await cur_chan.edit(topic=topic)
         #update record with the data 
         one.contents=topic
+        one.creatorid=interaction.user.id
         putrecord("courses",one)
         await interaction.response.send_message("updated course topic", ephemeral=True)
         return
@@ -159,7 +160,63 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         await interaction.response.send_message("course topic is:\n{}".format(one.contents), ephemeral=False)
         return
 
-#class psprompt(app_commands.Group):
+class psprompt(app_commands.Group):
+    @app_commands.command(name="create",description="create a new prompt and a thread for discussing the prompt")
+    @app_commands.describe(name="a short name of the prompt, will become thread name")
+    async def prompt_create(self,interaction:discord.Interaction,name:str):
+        cur_chan_id=interaction.channel.id
+        one=getonerecord("courses",cur_chan_id)
+        if not one:
+            await interaction.response.send_message("you need to create thread from within a course channel", ephemeral=True)
+            return
+        #do not care if it already exists.
+        #create thread with name name under current channel
+
+        thread=await client.guilds[0].create_thread(name, type=discord.ChannelType.public_thread)
+        #create record with the data parentID=cur_chan_id
+        one=standardrecord()
+        one.parentid=cur_chan_id
+        one.id=thread.id
+        one.creatorid=interaction.user.id
+        one.contents="no prompt body provided yet. use /psprompt set command"
+        putrecord("prompts",one)
+        await interaction.response.send_message("created prompt-thread {} in this channel".format(name), ephemeral=True)
+        return
+
+    @app_commands.command(name="set",description="set prompt contents")
+    @app_commands.describe(theprompt="the contents of the prompt, markdown allowed.")
+    async def course_set(self,interaction:discord.Interaction,topic:str):
+        cur_chan_id=interaction.channel.id
+        one=getonerecord("prompts",cur_chan_id)
+        if not one:
+            await interaction.response.send_message("you need to run set from within a prompt-thread", ephemeral=True)
+            return
+        #in future pin a message with the prompt
+        one.contents=theprompt
+        one.creatorid=interaction.user.id
+        putrecord("prompts",one)
+        await interaction.response.send_message("updated prompt contents", ephemeral=True)
+        return
+
+    @app_commands.command(name="recall",description="show prompt topic, private")
+    async def course_recall(self,interaction:discord.Interaction):
+        cur_chan_id=interaction.channel.id
+        one=getonerecord("prompts",cur_chan_id)
+        if not one:
+            await interaction.response.send_message("you need to run recall from within a prompt-thread", ephemeral=True)
+            return
+        await interaction.response.send_message("the prompt by @<{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=True)
+        return
+
+    @app_commands.command(name="show",description="show course topic")
+    async def course_show(self,interaction:discord.Interaction):
+        cur_chan_id=interaction.channel.id
+        one=getonerecord("prompts",cur_chan_id)
+        if not one:
+            await interaction.response.send_message("you need to run show from within a prompt-thread", ephemeral=True)
+            return
+        await interaction.response.send_message("the prompt by @<{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=False)
+        return
 
 #class psresponse(app_commands.Group):
     
@@ -182,7 +239,7 @@ async def on_ready():
 #    m= await tree.sync()
     tree.add_command(pscourse())#need to be added manually for some reason
     tree.add_command(pstest())#need to be added manually for some reason
-    #tree.add_command(psprompt())#need to be added manually for some reason
+    tree.add_command(psprompt())#need to be added manually for some reason
     #tree.add_command(psresponse())#need to be added manually for some reason
     tree.copy_global_to(guild=client.guilds[0]) #the commands were probably defined as global
     print(client.guilds[0],client.guilds[0].id)
