@@ -224,7 +224,7 @@ class psprompt(app_commands.Group):
 class psresponse(app_commands.Group):
     @app_commands.command(name="submit",description="create and submit a response to the prompt")
     @app_commands.describe(theresponse="your response to teh prompt, can be text or a link or both. files not supported, yet")
-    async def response_submit(self,interaction:discord.Interaction,resp:str):
+    async def response_submit(self,interaction:discord.Interaction,theresponse:str):
         cur_chan_id=interaction.channel.id
         one=getonerecord("prompts",cur_chan_id)
         if not one:
@@ -236,7 +236,7 @@ class psresponse(app_commands.Group):
         one.parentid=cur_chan_id
         one.id=int(time.time()) #just need a number, this has no real meaning as we search by creator and thread id
         one.creatorid=interaction.user.id
-        one.contents=resp
+        one.contents=theresponse
         putrecord("responses",one)
         await interaction.response.send_message("submitted response. do you want to share? /psresponse show. want to edit? /psresponse submit again.", ephemeral=True)
         return
