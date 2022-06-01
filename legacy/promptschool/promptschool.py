@@ -171,8 +171,8 @@ class psprompt(app_commands.Group):
             return
         #do not care if it already exists.
         #create thread with name name under current channel
-
-        thread=await client.guilds[0].create_thread(name, type=discord.ChannelType.public_thread)
+        channel=await client.guilds[0].fetch_channel(cur_chan_id)
+        thread=await channel.create_thread(name, type=discord.ChannelType.public_thread)
         #create record with the data parentID=cur_chan_id
         one=standardrecord()
         one.parentid=cur_chan_id
