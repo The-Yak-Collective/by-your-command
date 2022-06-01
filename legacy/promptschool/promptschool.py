@@ -180,8 +180,8 @@ class pstest(app_commands.Group): #not being added anymore?
 async def on_ready(): 
 #    tree.copy_global_to(guild=client.guilds[0])
 #    m= await tree.sync()
-    tree.add_command(pstest())#need to be added manually for some reason
     tree.add_command(pscourse())#need to be added manually for some reason
+    tree.add_command(pstest())#need to be added manually for some reason
     #tree.add_command(psprompt())#need to be added manually for some reason
     #tree.add_command(psresponse())#need to be added manually for some reason
     tree.copy_global_to(guild=client.guilds[0]) #the commands were probably defined as global
