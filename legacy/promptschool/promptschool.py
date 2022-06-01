@@ -173,7 +173,7 @@ class psprompt(app_commands.Group):
         #create thread with name name under current channel
         channel=await client.guilds[0].fetch_channel(cur_chan_id)
         tempmess=channel.send("now opening a new prompt thread {}".format(name))
-        thread=await channel.create_thread(name, message=tempmess)
+        thread=await channel.create_thread(name=name, message=tempmess.id)
         #create record with the data parentID=cur_chan_id
         one=standardrecord()
         one.parentid=cur_chan_id
