@@ -101,42 +101,7 @@ def getqonerecord(tab, id=None,parentid=None,creatorid=None):
     return one.set(db_c.execute('select * from {0} where {1} order by seq desc'.format(tab,wstr)).fetchone())
 
 
-@tree.command(description="set or replace a prompt for ongoing discussions in this thread")
-@app_commands.describe(theprompt='text of prompt')
-async def psset(interaction: discord.Interaction, theprompt: str):
-    one=standardrecord()
-    one.contents=theprompt
-    one.creatorid=interaction.user.id
-    one.id=interaction.channel_id
-    putrecord("prompts",one)
-    await interaction.response.send_message("hope you like your prompt!", ephemeral=True)
-    return
 
-
-@tree.command( description="show the current prompt of this for ongoing discussions")
-async def psshow(interaction: discord.Interaction):
-    try:
-        one=getonerecord("prompts",interaction.channel_id)
-        print("got one:",one)
-        output=one.contents + str(list(one.totuple()))
-    except:
-        output="could not obtain prompt"
-    await splitsend(interaction.channel,output,False)
-    await interaction.response.send_message("done: "+output, ephemeral=True)
-    return
-
-@tree.command( description="ephemeral reminder of the current prompt of this for ongoing discussions")
-async def psrecall(interaction: discord.Interaction):
-    await interaction.response.send_message("support suspended", ephemeral=True)
-    return
-    try:
-        rows=db_c.execute('select contents from prompts where chan=? order by  promptid desc',(interaction.channel_id,)).fetchone()
-    except:
-        rows=["could not obtain prompt"]
-    if not rows:
-        rows=["are you sure you created a prompt?"]
-    await interaction.response.send_message("the prompt:\n"+rows[0], ephemeral=True)
-    return
 
 class pscourse(app_commands.Group):#commands: create, set, show, showall, recall, recallall. no del yet
     @app_commands.command(name="create",description="create a new course")
