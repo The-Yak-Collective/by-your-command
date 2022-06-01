@@ -1,8 +1,5 @@
 ## parts from here: https://gist.github.com/Rapptz/c4324f17a80c94776832430007ad40e6#slash-commands-and-context-menu-commands
 
-    
-
-
 
 from discord.ext import tasks, commands
 import discord
@@ -22,27 +19,113 @@ from discord_promptschool import * #including client and tree
 
 HOME_DIR="/home/yak/robot/promptschool/"
 USER_DIR="/home/yak/"
+LISTOFTABLES=['prompts','hints','courses','responses']
 
 load_dotenv(USER_DIR+'.env')
 
-conn=sqlite3.connect(HOME_DIR+'promptschooldatabase.db') #the connection should be global. 
-
-
+conn=sqlite3.connect(HOME_DIR+'promptschooldatabase.db')  
 db_c = conn.cursor()
 
+class standardrecord:
+#based on db_c.execute('''CREATE TABLE {0} (seq INTEGER PRIMARY KEY, id int, creatorid text, contents text, filled int, createdat int, filledat int, parentid int, mlink text, other text)'''.format(tab)) 
+    def __init__(self):
+        self.seq=None
+        self.id=0 #id of teh item, usually provided by discord
+        self.creatorid=0 #user id of creator
+        self.contents="" #the actual payload
+        self.filled=0 #some sort of marking
+        self.createdat=0 #when was it created
+        self.filledat=0 #when was it marked
+        self.parentid=0 # one level up in hierarchy
+        self.mlink="" #some link data. not used
+        self.other="" #some other data. not used
+
+    def set(self, rawrecord):
+        self.seq=rawrecord[0] #just a running count
+        self.id=rawrecord[1] #id of teh item, usually provided by discord
+        self.creatorid=rawrecord[2] #user id of creator
+        self.contents=rawrecord[3] #the actual payload
+        self.filled=rawrecord[4] #soem sort of marking
+        self.createdat=rawrecord[5] #when was it created
+        self.filledat=rawrecord[6] #when was it marked
+        self.parentid=rawrecord[7] # one level up in hierarchy
+        self.mlink=rawrecord[8] #some link data. not used
+        self.other=rawrecord[9] #some other data. not used
+        return (self)
+    def totuple(self)
+        return(self.seq, self.id, self.creatorid,self.contents,self.filled,self.filledat,self.parentid,self.mlink,self.other)
+
+def putrecord(tab, rec):
+    rec.createdat=int(time.time())
+    rec.seq=None
+    db_c.execute('''insert into {} values    (?,?,?,?,?,?,?,?,?,?)'''.format(tab),rec.totuple())
+    conn.commit()
+def getonerecord(tab, id):
+    one=standardrecord()
+    return one.set(db_c.execute('select contents from {} where id=? order by seq desc'.format(tab),(id,)).fetchone())
+def getallrecords(tab, id):
+    rows=db_c.execute('select contents from {} where id=? order by seq desc'.format(tab),(id,)).fetchall()
+    man=[]
+    for r in rows:
+        one=standardrecord()
+        one.set(r)
+        man.append(one)
+    return(man)
+def getqallrecords(tab, id=None,parentid=None,creatorid=None):
+    wstr="1"
+    if id:
+        wstr=wstr+" and id="+str(id)
+    if parentid:
+        wstr=wstr+" and parentid="+str(parentid)
+    if creatorid:
+        wstr=wstr+" and creatorid="+str(creatorid)
+    
+    rows= db_c.execute('select contents from {0} where {1} order by seq desc'.format(tab,wstr)).fetchall()
+    man=[]
+    for r in rows:
+        one=standardrecord()
+        one.set(r)
+        man.append(one)
+    return(man)
+def getqonerecord(tab, id=None,parentid=None,creatorid=None):
+    wstr="1"
+    if id:
+        wstr=wstr+" and id="+str(id)
+    if parentid:
+        wstr=wstr+" and parentid="+str(parentid)
+    if creatorid:
+        wstr=wstr+" and creatorid="+str(creatorid)
+    one=standardrecord()
+    return one.set(db_c.execute('select contents from {0} where {1} order by seq desc'.format(tab,wstr)).fetchone())
 
 
-@tree.command(description="set a prompt for ongoing discussions")
+@tree.command(description="set or replace a prompt for ongoing discussions in this thread")
 @app_commands.describe(theprompt='text of prompt')
 async def psset(interaction: discord.Interaction, theprompt: str):
-    conts=theprompt
-    db_c.execute('''insert into prompts values (NULL,?,?,?,?,?,?,?)''',(str(interaction.user.id),conts,0,int(time.time()),0,interaction.channel_id,"not in use"))
-    conn.commit()
+    one=standardrecord()
+    one.contents=theprompt
+    one.creatorid=interaction.user.id
+    one.id=interaction.channel_id
+    putrecord("prompts",one)
     await interaction.response.send_message("hope you like your prompt!", ephemeral=True)
+    return
+
+
+@tree.command( description="show the current prompt of this for ongoing discussions")
+async def psshow(interaction: discord.Interaction):
+    try:
+        one=getonerecord("prompts",interaction.channel_id)
+        output=one.contents + str(list(one.totuple()))
+    except:
+        output=["could not obtain prompt"]
+    await splitsend(interaction.channel,output,False)
+    await interaction.response.send_message("done: "+output, ephemeral=True)
     return
 
 @tree.command( description="ephemeral reminder of the current prompt of this for ongoing discussions")
 async def psrecall(interaction: discord.Interaction):
+    await interaction.response.send_message("support suspended", ephemeral=True)
+    return
     try:
         rows=db_c.execute('select contents from prompts where chan=? order by  promptid desc',(interaction.channel_id,)).fetchone()
     except:
@@ -51,19 +134,6 @@ async def psrecall(interaction: discord.Interaction):
         rows=["are you sure you created a prompt?"]
     await interaction.response.send_message("the prompt:\n"+rows[0], ephemeral=True)
     return
-
-@tree.command( description="show the current prompt of this for ongoing discussions")
-async def psshow(interaction: discord.Interaction):
-    try:
-        rows=db_c.execute('select contents from prompts where chan=? order by promptid desc',(interaction.channel_id,)).fetchone()
-    except:
-        rows=["could not obtain prompt"]
-    if not rows:
-        rows=["are you sure you created a prompt?"]
-    await splitsend(interaction.channel,rows[0],False)
-    await interaction.response.send_message("done", ephemeral=True)
-    return
-
 
 @tree.command(description="a simple echo as a test")
 @app_commands.describe(echome='text to echo')
@@ -99,13 +169,13 @@ async def durl2m(u): #needs to be redone for thread...
 
 def checkon_database(): 
 #check if table exists in DB. if not, create it
-#this function is RIPE for automation, which would also be carried over to "on message"
-    db_c.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name='prompts' ''')
-    if db_c.fetchone()[0]!=1:
-        db_c.execute('''CREATE TABLE prompts (promptid INTEGER PRIMARY KEY, creatorid text, contents text, filled int, createdat int, filledat int, chan int, mlink text)''') 
-        #filled=is it active
-        #most items will not be used...
-        conn.commit()
+    for tab in LISTOFTABLES:
+        db_c.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name={} '''.format(tab))
+        if db_c.fetchone()[0]!=1:
+            db_c.execute('''CREATE TABLE {0} (seq INTEGER PRIMARY KEY, id int, creatorid text, contents text, filled int, createdat int, filledat int, parentid int, mlink text, other text)'''.format(tab)) 
+            #filled=is it active
+            #most items will not be used...
+            conn.commit()
 
 
 async def splitsend(ch,st,codeformat):
