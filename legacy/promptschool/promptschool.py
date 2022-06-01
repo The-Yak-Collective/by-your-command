@@ -78,6 +78,10 @@ async def on_ready():
     print(client.guilds[0],client.guilds[0].id)
     m= await tree.sync(guild=client.guilds[0])
     print([x.name for x in m])
+    if len(m)==0:
+        m= await tree.sync(guild=discord.Object(id=MY_GUILD_ID))
+        print([x.name for x in m])
+
     checkon_database()
     print("promptschool is up!")
     print([x.name for x in tree.get_commands()])
@@ -120,4 +124,5 @@ async def splitsend(ch,st,codeformat):
         await splitsend(ch,st[x+1:],codeformat)
 
 discord_token=os.getenv('PROMPTSCHOOL_DISCORD_KEY')
+MY_GUILD_ID=os.getenv('THEYAKCOLLECTIVE_DISCORD_ID')
 client.run(discord_token) 
