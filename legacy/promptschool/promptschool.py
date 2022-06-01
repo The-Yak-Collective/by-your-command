@@ -167,7 +167,7 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
 
         cur_chan=await client.guilds[0].fetch_channel(cur_chan_id)
         #physically update the channel topic
-        cur_chan.edit(topic=topic)
+        await cur_chan.edit(topic=topic)
         #update record with the data 
         one.contents=topic
         putrecord("courses",one)
@@ -185,7 +185,7 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         return
 
     @app_commands.command(name="show",description="show course topic")
-    async def course_recall(self,interaction:discord.Interaction):
+    async def course_show(self,interaction:discord.Interaction):
         cur_chan_id=interaction.channel.id
         one=getonerecord("courses",cur_chan_id)
         if not one:
