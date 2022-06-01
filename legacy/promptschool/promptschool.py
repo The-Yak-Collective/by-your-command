@@ -66,7 +66,7 @@ def getonerecord(tab, id):
     print(id,res)
     return one.set(res)
 def getallrecords(tab, id):
-    rows=db_c.execute('select contents from {} where id=? order by seq desc'.format(tab),(id,)).fetchall()
+    rows=db_c.execute('select * from {} where id=? order by seq desc'.format(tab),(id,)).fetchall()
     man=[]
     for r in rows:
         one=standardrecord()
@@ -82,7 +82,7 @@ def getqallrecords(tab, id=None,parentid=None,creatorid=None):
     if creatorid:
         wstr=wstr+" and creatorid="+str(creatorid)
     
-    rows= db_c.execute('select contents from {0} where {1} order by seq desc'.format(tab,wstr)).fetchall()
+    rows= db_c.execute('select * from {0} where {1} order by seq desc'.format(tab,wstr)).fetchall()
     man=[]
     for r in rows:
         one=standardrecord()
@@ -98,7 +98,7 @@ def getqonerecord(tab, id=None,parentid=None,creatorid=None):
     if creatorid:
         wstr=wstr+" and creatorid="+str(creatorid)
     one=standardrecord()
-    return one.set(db_c.execute('select contents from {0} where {1} order by seq desc'.format(tab,wstr)).fetchone())
+    return one.set(db_c.execute('select * from {0} where {1} order by seq desc'.format(tab,wstr)).fetchone())
 
 
 @tree.command(description="set or replace a prompt for ongoing discussions in this thread")
@@ -137,17 +137,23 @@ async def psrecall(interaction: discord.Interaction):
         rows=["are you sure you created a prompt?"]
     await interaction.response.send_message("the prompt:\n"+rows[0], ephemeral=True)
     return
-
-@tree.command(description="a simple echo as a test")
-@app_commands.describe(echome='text to echo')
-async def pstest(interaction: discord.Interaction, echome: str):
-    await interaction.response.send_message(f'{echome=}', ephemeral=True)
+    
+class test(app_commands.Group)
+    @app_commands.command(name="echo")
+    @app_commands.describe(name="the text")
+    async test_echo(self,interaction:discord.Interaction,txt:str))
+        await interaction.response.send_message(f'test echo {txt=}', ephemeral=True)
+    @app_commands.command(name="doubleecho")
+    @app_commands.describe(name="the text")
+    async test_echo(self,interaction:discord.Interaction,txt:str))
+        await interaction.response.send_message(f'test doubleecho {txt=}{txt=}', ephemeral=True)
 
 
 @client.event #needed since it takes time to connect to discord
 async def on_ready(): 
 #    tree.copy_global_to(guild=client.guilds[0])
 #    m= await tree.sync()
+    tree.add_command(test)#need to be added manually for some reason
     tree.copy_global_to(guild=client.guilds[0]) #the commands were probably defined as global
     print(client.guilds[0],client.guilds[0].id)
     m= await tree.sync(guild=client.guilds[0])
