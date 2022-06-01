@@ -145,7 +145,7 @@ class test(app_commands.Group):
         await interaction.response.send_message(f'test echo {txt=}', ephemeral=True)
     @app_commands.command(name="doubleecho")
     @app_commands.describe(name="the text")
-    async test_echo(self,interaction:discord.Interaction,txt:str))
+    async def test_echo(self,interaction:discord.Interaction,txt:str)):
         await interaction.response.send_message(f'test doubleecho {txt=}{txt=}', ephemeral=True)
 
 
