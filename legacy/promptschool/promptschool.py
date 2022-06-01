@@ -115,6 +115,7 @@ async def psset(interaction: discord.Interaction, theprompt: str):
 async def psshow(interaction: discord.Interaction):
     try:
         one=getonerecord("prompts",interaction.channel_id)
+        print("got one:",one)
         output=one.contents + str(list(one.totuple()))
     except:
         output="could not obtain prompt"
