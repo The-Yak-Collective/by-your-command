@@ -117,7 +117,7 @@ async def psshow(interaction: discord.Interaction):
         one=getonerecord("prompts",interaction.channel_id)
         output=one.contents + str(list(one.totuple()))
     except:
-        output=["could not obtain prompt"]
+        output="could not obtain prompt"
     await splitsend(interaction.channel,output,False)
     await interaction.response.send_message("done: "+output, ephemeral=True)
     return
