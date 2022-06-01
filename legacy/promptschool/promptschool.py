@@ -75,7 +75,7 @@ async def pstest(interaction: discord.Interaction, echome: str):
 async def on_ready(): 
 #    tree.copy_global_to(guild=client.guilds[0])
 #    m= await tree.sync()
-    print(client.guilds[0])
+    print(client.guilds[0],client.guilds[0].id)
     m= await tree.sync(guild=client.guilds[0])
     print([x.name for x in m])
     checkon_database()
