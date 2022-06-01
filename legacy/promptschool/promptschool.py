@@ -19,7 +19,7 @@ from discord_promptschool import * #including client and tree
 
 HOME_DIR="/home/yak/robot/promptschool/"
 USER_DIR="/home/yak/"
-LISTOFTABLES=['prompts','hints','courses','responses']
+LISTOFTABLES=['prompts','hints','courses','responses'] #no hint support yet
 
 load_dotenv(USER_DIR+'.env')
 
@@ -137,8 +137,68 @@ async def psrecall(interaction: discord.Interaction):
         rows=["are you sure you created a prompt?"]
     await interaction.response.send_message("the prompt:\n"+rows[0], ephemeral=True)
     return
-    
-class test(app_commands.Group):
+
+class pscourse(app_commands.Group):#commands: create, set, show, showall, recall, recallall. no del yet
+    @app_commands.command(name="create",description="create a new course")
+    @app_commands.describe(name="a short name of the course, will become channel name")
+    async def course_create(self,interaction:discord.Interaction,name:str):
+        #create legal name - lest see what happens without
+        #do not care if it already exists.
+        #create channel with name name under PROMPTSCHOOL_CATEGORY_ID
+        category=await client.guilds[0].fetch_channel(PROMPTSCHOOL_CATEGORY_ID)
+        channel=await client.guilds[0].create_text_channel(name,category=category)
+        #create record with the data parentID=PROMPTSCHOOL_CATEGORY_ID
+        one=standardrecord()
+        one.parentid=PROMPTSCHOOL_CATEGORY_ID
+        one.id=channel.id
+        one.creatorid=interaction.user.id
+        one.contents="no description provided yet. use /pscourse set command"
+        putrecord("courses",one)
+        await interaction.response.send_message("created course {} in the prompt school catagory".format(name), ephemeral=True)
+        return
+    @app_commands.command(name="set",description="set course topic")
+    @app_commands.describe(topic="a description of what the course is about")
+    async def course_set(self,interaction:discord.Interaction,topic:str):
+        cur_chan_id=interaction.channel.id
+        one=getonerecord("courses",cur_chan_id)
+        if not one:
+            await interaction.response.send_message("you need to run set from within the course channel", ephemeral=True)
+            return
+
+        cur_chan=await client.guilds[0].fetch_channel(cur_chan_id)
+        #physically update the channel topic
+        cur_chan.edit(topic=topic)
+        #update record with the data 
+        one.contents=topic
+        putrecord("courses",one)
+        await interaction.response.send_message("updated course topic", ephemeral=True)
+        return
+
+    @app_commands.command(name="recall",description="show course topic, private")
+    async def course_recall(self,interaction:discord.Interaction):
+        cur_chan_id=interaction.channel.id
+        one=getonerecord("courses",cur_chan_id)
+        if not one:
+            await interaction.response.send_message("you need to run recall from within the course channel", ephemeral=True)
+            return
+        await interaction.response.send_message("course topic is:\n".format(one.contents), ephemeral=True)
+        return
+
+    @app_commands.command(name="show",description="show course topic")
+    async def course_recall(self,interaction:discord.Interaction):
+        cur_chan_id=interaction.channel.id
+        one=getonerecord("courses",cur_chan_id)
+        if not one:
+            await interaction.response.send_message("you need to run show from within the course channel", ephemeral=True)
+            return
+        await interaction.response.send_message("course topic is:\n".format(one.contents), ephemeral=False)
+        return
+
+class psprompt(app_commands.Group):
+class psresponse(app_commands.Group):
+#class pshint(app_commands.Group):#not implemented yet
+
+class pstest(app_commands.Group): #not being added anymore?
     @app_commands.command(name="echo")
     @app_commands.describe(txt="the text to echo")
     async def test_echo(self,interaction:discord.Interaction,txt:str):
@@ -153,7 +213,10 @@ class test(app_commands.Group):
 async def on_ready(): 
 #    tree.copy_global_to(guild=client.guilds[0])
 #    m= await tree.sync()
-    tree.add_command(test())#need to be added manually for some reason
+    tree.add_command(pstest())#need to be added manually for some reason
+    tree.add_command(pscourse())#need to be added manually for some reason
+    tree.add_command(psprompt())#need to be added manually for some reason
+    tree.add_command(psresponse())#need to be added manually for some reason
     tree.copy_global_to(guild=client.guilds[0]) #the commands were probably defined as global
     print(client.guilds[0],client.guilds[0].id)
     m= await tree.sync(guild=client.guilds[0])
@@ -205,4 +268,5 @@ async def splitsend(ch,st,codeformat):
 
 discord_token=os.getenv('PROMPTSCHOOL_DISCORD_KEY')
 MY_GUILD_ID=os.getenv('THEYAKCOLLECTIVE_DISCORD_ID')
+PROMPTSCHOOL_CATEGORY_ID=os.getenv('PROMPTSCHOOL_CATEGORY_ID')
 client.run(discord_token) 
