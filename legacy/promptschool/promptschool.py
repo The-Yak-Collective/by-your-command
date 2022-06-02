@@ -227,7 +227,7 @@ class psprompt(app_commands.Group):
     @app_commands.command(name="reaction",description="give feedback on the prompt")
     @app_commands.describe(reaction="choose how you feel about the prompt")
     @app_commands.describe(words="explain using words, if you want")
-    @app_commands.choices(reactions=[
+    @app_commands.choices(reaction=[
     Choice(name='good', value='good'),
     Choice(name='too hard', value='too hard'),
     Choice(name='too easy', value='too easy'),
