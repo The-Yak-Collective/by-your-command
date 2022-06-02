@@ -223,7 +223,7 @@ class psprompt(app_commands.Group):
 
 class psresponse(app_commands.Group):
     @app_commands.command(name="submit",description="create and submit a response to the prompt")
-    @app_commands.describe(theresponse="your response to teh prompt, can be text or a link or both. files not supported, yet")
+    @app_commands.describe(theresponse="your response to the prompt, can be text or a link or both. files not supported, yet")
     async def response_submit(self,interaction:discord.Interaction,theresponse:str):
         cur_chan_id=interaction.channel.id
         one=getonerecord("prompts",cur_chan_id)
@@ -262,8 +262,50 @@ class psresponse(app_commands.Group):
         await interaction.response.send_message("the response by <@{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=False)
         return
 
-#class pshint(app_commands.Group):#not implemented yet
+class pshint(app_commands.Group):
+    @app_commands.command(name="submit",description="create and submit a hint for the prompt")
+    @app_commands.describe(thehint="a hint that can help people complete teh prompt, can be text or a link or both. files not supported, yet")
+    async def hint_submit(self,interaction:discord.Interaction,thehint:str):
+        cur_chan_id=interaction.channel.id
+        one=getonerecord("prompts",cur_chan_id)
+        if not one:
+            await interaction.response.send_message("you need to submit a hint from within a prompt-thread ", ephemeral=True)
+            return
+        #do not care if it already exists.
 
+        one=standardrecord()
+        one.parentid=cur_chan_id
+        one.id=int(time.time()) #just need a number, this has no real meaning as we search by creator and thread id
+        one.creatorid=interaction.user.id
+        one.contents=thehint
+        putrecord("hints",one)
+        await interaction.response.send_message("submitted hint. to share /pshint show.  to edit? /pshint submit again.", ephemeral=True)
+        return
+
+
+    @app_commands.command(name="recall",description="show hint, private, for now only one")
+    async def hint_recall(self,interaction:discord.Interaction):
+        cur_chan_id=interaction.channel.id
+        one=getqonerecord("hints",parentid=cur_chan_id,creatorid=interaction.user.id)
+        if not one:
+            await interaction.response.send_message("failure to retrieve. you need to run recall from within a prompt-thread or you there is no hint available", ephemeral=True)
+            return
+        await interaction.response.send_message("the hint by <@{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=True)
+        return
+
+    @app_commands.command(name="show",description="show latest hint, publicly")
+    async def hint_show(self,interaction:discord.Interaction):
+        cur_chan_id=interaction.channel.id
+        one=getqonerecord("hints",parentid=cur_chan_id,creatorid=interaction.user.id)
+        if not one:
+            await interaction.response.send_message("failure to retrieve. you need to run show from within a prompt-thread or you there is no hint available", ephemeral=True)
+            return
+        await interaction.response.send_message("the hint by <@{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=False)
+        return
+
+#now need commands for stats
+
+#this class maybe we can delete soon
 class pstest(app_commands.Group): #not being added anymore?
     @app_commands.command(name="echo")
     @app_commands.describe(txt="the text to echo")
@@ -283,7 +325,7 @@ async def on_ready():
     tree.add_command(pstest())#need to be added manually for some reason
     tree.add_command(psprompt())#need to be added manually for some reason
     tree.add_command(psresponse())#need to be added manually for some reason
-#    tree.add_command(pshint())#need to be added manually for some reason
+    tree.add_command(pshint())#need to be added manually for some reason
     tree.copy_global_to(guild=client.guilds[0]) #the commands were probably defined as global
     print(client.guilds[0],client.guilds[0].id)
     m= await tree.sync(guild=client.guilds[0])
