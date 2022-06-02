@@ -1,6 +1,6 @@
 ## parts from here: https://gist.github.com/Rapptz/c4324f17a80c94776832430007ad40e6#slash-commands-and-context-menu-commands
 
-
+from discord.app_commands import Choice
 from discord.ext import tasks, commands
 import discord
 import asyncio
