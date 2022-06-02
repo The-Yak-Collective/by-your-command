@@ -233,14 +233,13 @@ class psprompt(app_commands.Group):
     Choice(name='too easy', value='too easy'),
     Choice(name='scary',value='scary'),
     Choice(name='didnt know what to do', value='didnt know what to do')])
-
     async def prompt_reaction(self,interaction:discord.Interaction, reaction: Choice[str], words: Optional[str]):
         cur_chan_id=interaction.channel.id
         one=getonerecord("prompts",cur_chan_id)
         if not one:
             await interaction.response.send_message("you need to run show from within a prompt-thread", ephemeral=True)
             return
-        await interaction.response.send_message("this information is not yet being saved:\n"+reaction+" "+words, ephemeral=True)
+        await interaction.response.send_message("this information is not yet being saved:\n"+str(reaction)+" "+words, ephemeral=True)
         return
 
 
