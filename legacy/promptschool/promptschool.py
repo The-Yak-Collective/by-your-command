@@ -227,7 +227,14 @@ class psprompt(app_commands.Group):
     @app_commands.command(name="reaction",description="give feedback on the prompt")
     @app_commands.describe(reaction="choose how you feel about the prompt")
     @app_commands.describe(words="explain using words, if you want")
-    async def prompt_reaction(self,interaction:discord.Interaction, reaction: Literal['good','too hard','too easy','scary','didnt know what to do'],words:Optoinal[str]):
+    @app_commands.choices(reactions=[
+    Choice(name='good', value='good'),
+    Choice(name='too hard', value='too hard'),
+    Choice(name='too easy', value='too easy'),
+    Choice(name='scary',value='scary'),
+    Choice(name='didnt know what to do', value='didnt know what to do')])
+
+    async def prompt_reaction(self,interaction:discord.Interaction, reaction: Choice[str], words: Optional[str]):
         cur_chan_id=interaction.channel.id
         one=getonerecord("prompts",cur_chan_id)
         if not one:
