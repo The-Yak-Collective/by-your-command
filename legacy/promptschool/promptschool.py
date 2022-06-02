@@ -60,10 +60,13 @@ def putrecord(tab, rec):
     rec.seq=None
     db_c.execute('''insert into {} values    (?,?,?,?,?,?,?,?,?,?)'''.format(tab),rec.totuple())
     conn.commit()
+    return rec
 def getonerecord(tab, id):
     one=standardrecord()
     res=db_c.execute('select * from {} where id=? order by seq desc'.format(tab),(id,)).fetchone() #before we only returned contents.
     print(id,res)
+    if not res:
+        return None
     return one.set(res)
 def getallrecords(tab, id):
     rows=db_c.execute('select * from {} where id=? order by seq desc'.format(tab),(id,)).fetchall()
