@@ -239,6 +239,9 @@ class psprompt(app_commands.Group):
         if not one:
             await interaction.response.send_message("you need to run show from within a prompt-thread", ephemeral=True)
             return
+        print("reaction:",reaction,reaction.name)
+        print("words:",words)
+        
         await interaction.response.send_message("this information is not yet being saved:\n"+reaction.name+" "+words, ephemeral=True)
         return
 
