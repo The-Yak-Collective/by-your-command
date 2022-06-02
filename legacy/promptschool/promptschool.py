@@ -224,6 +224,19 @@ class psprompt(app_commands.Group):
         await interaction.response.send_message("the prompt by <@{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=False)
         return
 
+    @app_commands.command(name="reaction",description="give feedback on the prompt")
+    @app_commands.describe(reaction="choose how you feel about the prompt")
+    @app_commands.describe(words="explain using words, if you want")
+    async def prompt_reaction(self,interaction:discord.Interaction, reaction: Literal['good','too hard','too easy','scary','didnt know what to do'],words:Optoinal[str]):
+        cur_chan_id=interaction.channel.id
+        one=getonerecord("prompts",cur_chan_id)
+        if not one:
+            await interaction.response.send_message("you need to run show from within a prompt-thread", ephemeral=True)
+            return
+        await interaction.response.send_message("this information is not yet being saved:\n"+reaction+" "+words, ephemeral=True)
+        return
+
+
 class psresponse(app_commands.Group):
     @app_commands.command(name="submit",description="create and submit a response to the prompt")
     @app_commands.describe(theresponse="your response to the prompt, can be text or a link or both. files not supported, yet")
