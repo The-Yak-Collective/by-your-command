@@ -10,7 +10,7 @@ import subprocess
 import time
 import datetime
 from dotenv import load_dotenv
-
+from typing import Optional
 import sqlite3
 import logging
 
