@@ -241,7 +241,8 @@ class psprompt(app_commands.Group):
             return
         print("reaction:",reaction,reaction.name)
         print("words:",words)
-        
+        if not words:
+            words=""
         await interaction.response.send_message("this information is not yet being saved:\n"+reaction.name+" "+words, ephemeral=True)
         return
 
