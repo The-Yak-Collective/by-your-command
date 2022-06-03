@@ -329,6 +329,34 @@ class pshint(app_commands.Group):
         await interaction.response.send_message("the hint by <@{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=False)
         return
 
+
+#class pshelp(app_commands.Group): #lets try a command before we try a group
+#    @app_commands.command(name="HELP", description="how to use the /ps promptschool system")
+@tree.command(description="how to use the /ps promptschool system")
+async def pshelp(self,interaction:discord.Interaction):
+    hm='''
+**Basic concept**:
+(i) all courses are under the catagory "prompt school", each in its own channel
+(ii) each prompt has its own thread under teh course channel
+(iii) updating does not delete old data, just adds new data - like a blockchain
+**Example**:
+`/pscourse create a new course` - creates a new course channel called "a-new-course"
+you now move to that channel (manually)
+`/pscourse set this is an experimental course` - sets the description of the course (as the channel topic)
+`/psprompt create test prompt` - creates a new thread called "test-prompt" under the channel "a-new-course". this command must be run in the _course channel_, not a thread
+you now move to that thread
+`/psprompt set a cool prompt` - sets the prompt of this thread to be "a cool prompt". you can change the prompt contents by rerunning this command
+`/psprompt recall` - gives you a private showing of the prompt of thsi thread. each thread has its own prompt
+`/psprompt show` - public posting of prompt
+`/psresponse submit my response` - submits "my response" as your response to the prompt _in this thread_. you can rerun to change the submission
+`/psresponse show` or `recall` - shows your response
+`/psreaction`  - allows you to give a reaction to the prompt. not yet stored
+`/pshint create a great hint` - allows you to add a hint. viewable using `/pshint show` or `recall`
+`/pshelp` - shows this or maybe a better message
+    '''
+    await interaction.response.send_message(hm, ephemeral=True)
+    return
+   
 #now need commands for stats
 
 #this class maybe we can delete soon
@@ -352,6 +380,7 @@ async def on_ready():
     tree.add_command(psprompt())#need to be added manually for some reason
     tree.add_command(psresponse())#need to be added manually for some reason
     tree.add_command(pshint())#need to be added manually for some reason
+#    tree.add_command(pshelp())#if single command, no need to add
     tree.copy_global_to(guild=client.guilds[0]) #the commands were probably defined as global
     print(client.guilds[0],client.guilds[0].id)
     m= await tree.sync(guild=client.guilds[0])
