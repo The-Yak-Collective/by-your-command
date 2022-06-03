@@ -332,8 +332,8 @@ class pshint(app_commands.Group):
 
 #class pshelp(app_commands.Group): #lets try a command before we try a group
 #    @app_commands.command(name="HELP", description="how to use the /ps promptschool system")
-@tree.command(description="how to use the /ps promptschool system")
-async def pshelp(self,interaction:discord.Interaction):
+@tree.command(name="pshelp",description="how to use the /ps promptschool system")
+async def pshelp(interaction:discord.Interaction):
     hm='''
 **Basic concept**:
 (i) all courses are under the catagory "prompt school", each in its own channel
