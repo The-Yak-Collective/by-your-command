@@ -124,6 +124,19 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         putrecord("courses",one)
         await interaction.response.send_message("created course {} in the prompt school category".format(name), ephemeral=True)
         return
+        
+    @app_commands.command(name="registerthischannel",description="(advanced) turn this existing channel, wherever it is, into a prompt course")
+    async def course_register(self,interaction:discord.Interaction):
+        #allows to register existing ongoing courseseven if not under PROMPTSCHOOL_CATEGORY_ID
+        one=standardrecord()
+        one.parentid=PROMPTSCHOOL_CATEGORY_ID #even if not actually there
+        one.id=interaction.channel.id
+        one.creatorid=interaction.user.id
+        one.contents="no description provided yet. use `/pscourse set` command"
+        putrecord("courses",one)
+        await interaction.response.send_message("this channel is now a course managerd by /psXXX promptschool bot. new prompts will be in threads. use /pshelp to learn more", ephemeral=False)
+        return
+
     @app_commands.command(name="set",description="set course topic")
     @app_commands.describe(topic="a description of what the course is about")
     async def course_set(self,interaction:discord.Interaction,topic:str):
@@ -186,6 +199,8 @@ class psprompt(app_commands.Group):
         putrecord("prompts",one)
         await interaction.response.send_message("created prompt-thread {} in this channel".format(name), ephemeral=True)
         return
+
+
 
     @app_commands.command(name="set",description="set prompt contents")
     @app_commands.describe(theprompt="the contents of the prompt, markdown allowed.")
@@ -353,6 +368,8 @@ you now move to that thread
 `/psreaction`  - allows you to give a reaction to the prompt. not yet stored
 `/pshint create a great hint` - allows you to add a hint. viewable using `/pshint show` or `recall`
 `/pshelp` - shows this or maybe a better message
+**to convert existing channels (but not their prompts, at this time)**
+`/pscourse registerthischannel` - registers current channel to be a course that /psXXX can manage
     '''
     await interaction.response.send_message(hm, ephemeral=True)
     return
