@@ -101,7 +101,12 @@ def getqonerecord(tab, id=None,parentid=None,creatorid=None):
     if creatorid:
         wstr=wstr+" and creatorid="+str(creatorid)
     one=standardrecord()
-    return one.set(db_c.execute('select * from {0} where {1} order by seq desc'.format(tab,wstr)).fetchone())
+    res=db_c.execute('select * from {0} where {1} order by seq desc'.format(tab,wstr)).fetchone()
+    print(id,res)
+    if not res:
+        return None
+    return one.set(res)
+
 
 
 
