@@ -285,6 +285,8 @@ class psresponse(app_commands.Group):
         one.contents=theresponse
         putrecord("responses",one)
         await interaction.response.send_message("submitted response. do you want to share? /psresponse show. want to edit? /psresponse submit again.", ephemeral=True)
+        await splitsend(interaction.channel,"<@{}> submitted a response".format(interaction.user.id),False)
+
         return
 
 
