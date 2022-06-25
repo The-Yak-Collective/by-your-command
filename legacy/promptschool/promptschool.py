@@ -357,26 +357,35 @@ class pshint(app_commands.Group):
 @tree.command(name="pshelp",description="how to use the /ps promptschool system")
 async def pshelp(interaction:discord.Interaction):
     hm='''
-**Basic concept**:
-(i) all courses are under the catagory "prompt school", each in its own channel
-(ii) each prompt has its own thread under teh course channel
-(iii) updating does not delete old data, just adds new data - like a blockchain
-**Example**:
-`/pscourse create a new course` - creates a new course channel called "a-new-course"
-you now move to that channel (manually)
-`/pscourse set this is an experimental course` - sets the description of the course (as the channel topic)
-`/psprompt create test prompt` - creates a new thread called "test-prompt" under the channel "a-new-course". this command must be run in the _course channel_, not a thread
-you now move to that thread
-`/psprompt set a cool prompt` - sets the prompt of this thread to be "a cool prompt". you can change the prompt contents by rerunning this command
-`/psprompt recall` - gives you a private showing of the prompt of thsi thread. each thread has its own prompt
-`/psprompt show` - public posting of prompt
-`/psresponse submit my response` - submits "my response" as your response to the prompt _in this thread_. you can rerun to change the submission
-`/psresponse show` or `recall` - shows your response
-`/psreaction`  - allows you to give a reaction to the prompt. not yet stored
-`/pshint create a great hint` - allows you to add a hint. viewable using `/pshint show` or `recall`
-`/pshelp` - shows this or maybe a better message
-**to convert existing channels (but not their prompts, at this time)**
-`/pscourse registerthischannel` - registers current channel to be a course that /psXXX can manage
+**Basic concept:**
+(i) all courses are under the category "prompt school", each in its own channel
+(ii) each prompt has its own thread under the course channel
+(iii) discussion is in the threads. meta and thread creation (but not setting) is in the channel.
+(iii) updating does not delete old data, adds new data - like a blockchain
+
+Participants:
+- Each course channel has its own topic; each thread has its own prompt. 
+- Use these slash commands to join in — you can start anywhere at any time!
+`/psprompt recall` // gives a **private** post of the prompt of the thread you're in
+`/psprompt show` // gives a **public** post of the prompt of the thread you're in
+`/psresponse submit my response` // submits "my response" as your response to the prompt in the thread you're in; run again to change your response
+`/psresponse show` OR `recall` // shows your response
+`/pshint create a great hint` // allows you to add a hint. viewable using `/pshint show` or `recall`
+/pshelp - shows this or maybe a better message
+`/psreaction` // allows you to give a reaction to the prompt. not yet stored
+
+**Prompters:**
+1. `/pscourse create a new course` // create a new course channel called "a-new-course"
+2. Move your attention to that channel manually
+3. `/pscourse set course description`  // set the description of the course as the channel topic
+4. `/psprompt create a prompt` // create a thread called "a-prompt" under the channel "a-new-course". Run in the course channel (**not** in a thread.)
+5. Move your attention to the new thread manually
+6. `/psprompt set a cool prompt` // set the prompt of the new thread to be "a cool prompt." you can change the prompt by running this command again
+
+- /pshelp // shows this or maybe a better message
+
+- to convert existing channels (but not their prompts at this time):
+/pscourse registerthischannel - registers current channel to be a course that /psXXX can manage
     '''
     await interaction.response.send_message(hm, ephemeral=True)
     return
