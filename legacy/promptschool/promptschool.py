@@ -19,7 +19,7 @@ from discord_promptschool import * #including client and tree
 
 HOME_DIR="/home/yak/robot/promptschool/"
 USER_DIR="/home/yak/"
-LISTOFTABLES=['prompts','hints','courses','responses'] #no hint support yet
+LISTOFTABLES=['prompts','hints','courses','responses','members'] 
 
 load_dotenv(USER_DIR+'.env')
 
@@ -30,7 +30,7 @@ class standardrecord:
 #based on db_c.execute('''CREATE TABLE {0} (seq INTEGER PRIMARY KEY, id int, creatorid text, contents text, filled int, createdat int, filledat int, parentid int, mlink text, other text)'''.format(tab)) 
     def __init__(self):
         self.seq=None
-        self.id=0 #id of teh item, usually provided by discord
+        self.id=0 #id of the item, usually provided by discord
         self.creatorid=0 #user id of creator
         self.contents="" #the actual payload
         self.filled=0 #some sort of marking
@@ -42,7 +42,7 @@ class standardrecord:
 
     def set(self, rawrecord):
         self.seq=rawrecord[0] #just a running count
-        self.id=rawrecord[1] #id of teh item, usually provided by discord
+        self.id=rawrecord[1] #id of the item, usually provided by discord
         self.creatorid=rawrecord[2] #user id of creator
         self.contents=rawrecord[3] #the actual payload
         self.filled=rawrecord[4] #soem sort of marking
@@ -76,7 +76,7 @@ def getallrecords(tab, id):
         one.set(r)
         man.append(one)
     return(man)
-def getqallrecords(tab, id=None,parentid=None,creatorid=None):
+def setfilledqallrecords(tab, newfillvalue, id=None,parentid=None,creatorid=None, filled=None):
     wstr="1"
     if id:
         wstr=wstr+" and id="+str(id)
@@ -84,6 +84,23 @@ def getqallrecords(tab, id=None,parentid=None,creatorid=None):
         wstr=wstr+" and parentid="+str(parentid)
     if creatorid:
         wstr=wstr+" and creatorid="+str(creatorid)
+    if filled:
+        wstr=wstr+" and filled="+str(filled)
+    nowish=int(time.time())
+    db_c.execute('''UPDATE {0} set filled=?, filledat= ?, where {1} order by seq desc'''.format(tab,wstr),(newfillvalue,int(nowish)))
+    return
+
+
+def getqallrecords(tab, id=None,parentid=None,creatorid=None, filled=None):
+    wstr="1"
+    if id:
+        wstr=wstr+" and id="+str(id)
+    if parentid:
+        wstr=wstr+" and parentid="+str(parentid)
+    if creatorid:
+        wstr=wstr+" and creatorid="+str(creatorid)
+    if filled:
+        wstr=wstr+" and filled="+str(filled)
     
     rows= db_c.execute('select * from {0} where {1} order by seq desc'.format(tab,wstr)).fetchall()
     man=[]
@@ -92,7 +109,8 @@ def getqallrecords(tab, id=None,parentid=None,creatorid=None):
         one.set(r)
         man.append(one)
     return(man)
-def getqonerecord(tab, id=None,parentid=None,creatorid=None):
+
+def getqonerecord(tab, id=None,parentid=None,creatorid=None, filled=None):
     wstr="1"
     if id:
         wstr=wstr+" and id="+str(id)
@@ -100,6 +118,8 @@ def getqonerecord(tab, id=None,parentid=None,creatorid=None):
         wstr=wstr+" and parentid="+str(parentid)
     if creatorid:
         wstr=wstr+" and creatorid="+str(creatorid)
+    if filled:
+        wstr=wstr+" and filled="+str(filled)
     one=standardrecord()
     res=db_c.execute('select * from {0} where {1} order by seq desc'.format(tab,wstr)).fetchone()
     print(id,res)
@@ -203,6 +223,12 @@ class psprompt(app_commands.Group):
         one.contents="no prompt body provided yet. use /psprompt set command"
         putrecord("prompts",one)
         await interaction.response.send_message("created prompt-thread {} in this channel".format(name), ephemeral=True)
+        #we are skipping the idea of telling people new thread is created, but prompt maybe not yet
+        #now join all users to the new thread
+        joiners=getqallrecords('members', parentid=cur_chan_id, filled=0)
+        for j in joiners:
+            auser=client.get_user(j.id)
+            thread.add_user(auser)
         return
 
 
@@ -373,6 +399,9 @@ Participants:
 `/pshint create a great hint` // allows you to add a hint. viewable using `/pshint show` or `recall`
 /pshelp - shows this or maybe a better message
 `/psreaction` // allows you to give a reaction to the prompt. not yet stored
+`/psjoin [REASON]` // run in the course channel, not thread, joins the course and you get notifications. optional reason
+`/psleave [REASON]` // run in the course channel, not thread, joins the course and you get notifications. optional reason.
+
 
 **Prompters:**
 1. `/pscourse create a new course` // create a new course channel called "a-new-course"
@@ -389,7 +418,59 @@ Participants:
     '''
     await interaction.response.send_message(hm, ephemeral=True)
     return
-   
+
+@tree.command(name="psjoin",description="join a course; get notifications")
+@app_commands.describe(reason='You may give a reason why you decided to join')
+async def psjoin(interaction:discord.Interaction, reason: Optional[str]):
+    cur_chan_id=interaction.channel.id
+    one=getonerecord("courses",cur_chan_id)
+    if not one:
+        await interaction.response.send_message("you need to join a course from within a course channel, not a thread", ephemeral=True)
+        return
+    #create member with the data parentID=cur_chan_id
+    one=standardrecord()
+    one.parentid=cur_chan_id
+    one.id=interaction.user.id
+    one.creatorid=interaction.user.id
+    if not reason:
+        reason="no reason given"
+    reason="joined because "+reason
+    one.contents=reason
+    one.filled=0 #0 means it is active, 1 means it is not
+#here set all to 1
+    setfilledqallrecords('members',1,parentid=cur_chan_id,id=interaction.user.id)
+    putrecord("members",one)
+    await interaction.response.send_message("congratulations, you joined course {} in this channel".format(interaction.channel.name), ephemeral=True)
+    #now do the joining. decided NOT to add to archived threads
+    for th in interaction.channel.threads:
+        await th.add_user(interaction.user) #maybe should be id, not "user"
+    return
+
+@tree.command(name="psleave",description="stop getting course notifications")
+@app_commands.describe(reason='You may give a reason why you decided to leave')
+async def psjoin(interaction:discord.Interaction, reason: Optional[str]):
+    cur_chan_id=interaction.channel.id
+    one=getonerecord("courses",cur_chan_id)
+    if not one:
+        await interaction.response.send_message("you need to leave a course from within the course channel, not a thread", ephemeral=True)
+        return
+    #create member record with the data parentID=cur_chan_id
+    one=standardrecord()
+    one.parentid=cur_chan_id
+    one.id=interaction.user.id
+    one.creatorid=interaction.user.id
+    if not reason:
+        reason="no reason given"
+    reason="left because "+reason
+    one.contents=reason
+    one.filled=1 #0 means it is active, 1 means it is not
+    putrecord("members",one)
+#here set all to 1 - AFTER we add record... as we use "filled" field both to say if record is active and if user is in table. basically, "filled=0" means "this is an active entry" and only "am joined" are active entries
+    setfilledqallrecords('members',1,parentid=cur_chan_id,id=interaction.user.id)
+    await interaction.response.send_message("congratulations, you joined course {} in this channel".format(interaction.channel.name), ephemeral=True)
+    #no need to remove user from threads
+    return
+
 #now need commands for stats
 
 #this class maybe we can delete soon
