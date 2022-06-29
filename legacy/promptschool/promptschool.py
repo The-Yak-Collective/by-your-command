@@ -214,7 +214,7 @@ class psprompt(app_commands.Group):
             return
         #do not care if it already exists.
         #create thread with name name under current channel
-        channel=await client.guilds[0].fetch_channel(cur_chan_id)
+        channel=interaction.channel #await client.guilds[0].fetch_channel(cur_chan_id)
         tempmess=await channel.send("now opening a new prompt thread {}".format(name))
         thread=await channel.create_thread(name=name, message=tempmess)
         #create record with the data parentID=cur_chan_id
@@ -230,7 +230,7 @@ class psprompt(app_commands.Group):
         joiners=getqallrecords('members', parentid=cur_chan_id, filled=0)
         for j in joiners:
             auser=client.get_user(j.id)
-            thread.add_user(auser)
+            await thread.add_user(auser)
         return
 
 
