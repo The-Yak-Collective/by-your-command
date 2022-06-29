@@ -87,7 +87,9 @@ def setfilledqallrecords(tab, newfillvalue, id=None,parentid=None,creatorid=None
     if filled:
         wstr=wstr+" and filled="+str(filled)
     nowish=int(time.time())
-    db_c.execute('''UPDATE {0} set filled=?, filledat= ?, where {1} order by seq desc'''.format(tab,wstr),(newfillvalue,int(nowish)))
+    thestring='''UPDATE {0} set filled=?, filledat= ?, where {1} order by seq desc'''.format(tab,wstr)
+    print(thestring)
+    db_c.execute(thestring,(newfillvalue,int(nowish)))
     return
 
 
