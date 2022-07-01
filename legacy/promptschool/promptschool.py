@@ -384,7 +384,7 @@ class pshint(app_commands.Group):
 #    @app_commands.command(name="HELP", description="how to use the /ps promptschool system")
 @tree.command(name="pshelp",description="how to use the /ps promptschool system")
 async def pshelp(interaction:discord.Interaction):
-    hm='''
+    hm1='''
 **Basic concept:**
 (i) all courses are under the category "prompt school", each in its own channel
 (ii) each prompt has its own thread under the course channel
@@ -403,8 +403,9 @@ Participants:
 `/psreaction` // allows you to give a reaction to the prompt. not yet stored
 `/psjoin [REASON]` // run in the course channel, not thread, joins the course and you get notifications. optional reason
 `/psleave [REASON]` // run in the course channel, not thread, joins the course and you get notifications. optional reason.
-
-
+'''
+    hm2='''
+    
 **Prompters:**
 1. `/pscourse create a new course` // create a new course channel called "a-new-course"
 2. Move your attention to that channel manually
@@ -418,7 +419,8 @@ Participants:
 - to convert existing channels (but not their prompts at this time):
 /pscourse registerthischannel - registers current channel to be a course that /psXXX can manage
     '''
-    await interaction.response.send_message(hm, ephemeral=True)
+    await interaction.response.send_message(hm1, ephemeral=True)
+    await interaction.followup.send(hm2, ephemeral=True)
     return
 
 @tree.command(name="psjoin",description="join a course; get notifications")
