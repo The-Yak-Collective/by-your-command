@@ -129,7 +129,8 @@ def getqonerecord(tab, id=None,parentid=None,creatorid=None, filled=None):
         return None
     return one.set(res)
 
-
+def addnl(x):
+    return x.replace("\\n","\n")
 
 
 
@@ -245,7 +246,7 @@ class psprompt(app_commands.Group):
             return
 
         #in future pin a message with the prompt
-        one.contents=theprompt
+        one.contents=addnl(theprompt)
         one.creatorid=interaction.user.id
         putrecord("prompts",one)
         await interaction.response.send_message("updated prompt contents", ephemeral=True)
