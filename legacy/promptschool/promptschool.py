@@ -250,7 +250,7 @@ class psprompt(app_commands.Group):
         one.creatorid=interaction.user.id
         putrecord("prompts",one)
         await interaction.response.send_message("updated prompt contents", ephemeral=True)
-        await splitsend(interaction.channel,"new prompt set for channel:\n"+theprompt,False)
+        await splitsend(interaction.channel,"new prompt set for channel:\n"+addnl(theprompt),False)
         return
 
     @app_commands.command(name="recall",description="show prompt topic, private")
