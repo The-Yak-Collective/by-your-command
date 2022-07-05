@@ -392,7 +392,7 @@ async def pshelp(interaction:discord.Interaction):
 (iii) discussion is in the threads. meta and thread creation (but not setting) is in the channel.
 (iii) updating does not delete old data, adds new data - like a blockchain
 
-*use "\n" to indicate a newline. discord limitation :(
+*use "\\n" to indicate a newline. discord limitation :(
 
 Participants:
 - Each course channel has its own topic; each thread has its own prompt. 
