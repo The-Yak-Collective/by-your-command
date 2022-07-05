@@ -178,7 +178,7 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         #physically update the channel topic
         await cur_chan.edit(topic=topic)
         #update record with the data 
-        one.contents=topic
+        one.contents=addnl(topic)
         one.creatorid=interaction.user.id
         putrecord("courses",one)
         await interaction.response.send_message("updated course topic", ephemeral=True)
@@ -311,7 +311,7 @@ class psresponse(app_commands.Group):
         one.parentid=cur_chan_id
         one.id=int(time.time()) #just need a number, this has no real meaning as we search by creator and thread id
         one.creatorid=interaction.user.id
-        one.contents=theresponse
+        one.contents=addnl(theresponse)
         putrecord("responses",one)
         await interaction.response.send_message("submitted response. do you want to share? /psresponse show. want to edit? /psresponse submit again.", ephemeral=True)
         await splitsend(interaction.channel,"<@{}> submitted a response".format(interaction.user.id),False)
@@ -354,7 +354,7 @@ class pshint(app_commands.Group):
         one.parentid=cur_chan_id
         one.id=int(time.time()) #just need a number, this has no real meaning as we search by creator and thread id
         one.creatorid=interaction.user.id
-        one.contents=thehint
+        one.contents=addnl(thehint)
         putrecord("hints",one)
         await interaction.response.send_message("submitted hint. to share /pshint show.  to edit? /pshint submit again.", ephemeral=True)
         return
@@ -391,6 +391,8 @@ async def pshelp(interaction:discord.Interaction):
 (ii) each prompt has its own thread under the course channel
 (iii) discussion is in the threads. meta and thread creation (but not setting) is in the channel.
 (iii) updating does not delete old data, adds new data - like a blockchain
+
+*use "\n" to indicate a newline. discord limitation :(
 
 Participants:
 - Each course channel has its own topic; each thread has its own prompt. 
