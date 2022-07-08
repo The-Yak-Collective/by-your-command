@@ -417,6 +417,8 @@ Participants:
 5. Move your attention to the new thread manually
 6. `/psprompt set a cool prompt` // set the prompt of the new thread to be "a cool prompt." you can change the prompt by running this command again
 
+* please keep prompts under 1900 characters long. discord issue :(
+
 - /pshelp // shows this or maybe a better message
 
 - to convert existing channels (but not their prompts at this time):
