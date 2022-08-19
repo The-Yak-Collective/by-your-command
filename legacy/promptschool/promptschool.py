@@ -263,7 +263,7 @@ class psprompt(app_commands.Group):
         await interaction.response.send_message("the prompt by <@{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=True)
         return
 
-    @app_commands.command(name="show",description="show course topic")
+    @app_commands.command(name="show",description="show topic of a prompt")
     async def prompt_show(self,interaction:discord.Interaction):
         cur_chan_id=interaction.channel.id
         one=getonerecord("prompts",cur_chan_id)
