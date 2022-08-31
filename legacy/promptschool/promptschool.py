@@ -340,9 +340,10 @@ class psresponse(app_commands.Group):
         return
 
 class pshint(app_commands.Group):
-    @app_commands.command(name="submit",description="create and submit a hint for the prompt")
-    @app_commands.describe(thehint="a hint that can help people complete teh prompt, can be text or a link or both. files not supported, yet")
-    async def hint_submit(self,interaction:discord.Interaction,thehint:str):
+    @app_commands.command(name="submit",description="create and submit a hint for the prompt. hides payload as a spoiler")
+    @app_commands.describe(cleartext="a visible brief description of the hint ")
+    @app_commands.describe(thehint="a hint that can help people complete the prompt, can be text or a link or both. files not supported, yet")
+    async def hint_submit(self,interaction:discord.Interaction,cleartext:str,thehint:str):
         cur_chan_id=interaction.channel.id
         one=getonerecord("prompts",cur_chan_id)
         if not one:
@@ -354,13 +355,15 @@ class pshint(app_commands.Group):
         one.parentid=cur_chan_id
         one.id=int(time.time()) #just need a number, this has no real meaning as we search by creator and thread id
         one.creatorid=interaction.user.id
-        one.contents=addnl(thehint)
+        bod=cleartext+" ||"+thehint+"||"
+        one.contents=addnl(bod)
         putrecord("hints",one)
         await interaction.response.send_message("submitted hint. to share /pshint show.  to edit? /pshint submit again.", ephemeral=True)
+        await interaction.response.send_message("a hint by <@{0}>is:\n{1}".format(one.creatorid,one.contents), ephemeral=False)
         return
 
 
-    @app_commands.command(name="recall",description="show hint, private, for now only one")
+    @app_commands.command(name="recall",description="show (latest) hint, private, for now only one")
     async def hint_recall(self,interaction:discord.Interaction):
         cur_chan_id=interaction.channel.id
         one=getqonerecord("hints",parentid=cur_chan_id,creatorid=interaction.user.id)
