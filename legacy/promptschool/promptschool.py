@@ -358,8 +358,8 @@ class pshint(app_commands.Group):
         bod=cleartext+" ||"+thehint+"||"
         one.contents=addnl(bod)
         putrecord("hints",one)
-        await interaction.response.send_message("submitted hint. to share /pshint show.  to edit? /pshint submit again.", ephemeral=True)
-        await interaction.channel.send("a hint by <@{0}>is:\n{1}".format(one.creatorid,one.contents))
+        await interaction.response.send_message(one.contents, ephermal=False)
+        await interaction.followup.send_message("submitted hint. to share /pshint show.  to edit? /pshint submit again.", ephemeral=True)
         return
 
 
