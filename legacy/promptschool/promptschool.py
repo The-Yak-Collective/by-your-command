@@ -78,7 +78,7 @@ def getpdframeoftable(tab):
 def getpdframeoftableparent(tab,parent, parenttab):
     line=pandas.read_sql('select * from {} where id={} order by seq desc limit 1'.format(parenttab,parent), conn)
     tab=pandas.read_sql('select * from {} where parentid={} order by seq desc'.format(tab,parent), conn)
-    res=pandas.concat([line,tab], axis=1)
+    res=pandas.concat([line,tab], axis=0)
     return res
 def getallrecords(tab, id):
     rows=db_c.execute('select * from {} where id=? order by seq desc'.format(tab),(id,)).fetchall()
