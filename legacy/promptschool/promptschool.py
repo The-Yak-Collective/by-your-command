@@ -236,13 +236,13 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         with open("coursefile.txt","w") as fd:
             fd.write(coursefile)
         #collect all hints per prompt
-        with pandas.ExcelWritter("hints.xlsx") as xwrite:
+        with pandas.ExcelWriter("hints.xlsx") as xwrite:
             for athread in t:
                 sheetname=athread.name
                 df=getpdframeoftableparent('hints',athread.id, 'prompts')
                 df.to_excel(xwrite,sheetname=sheetname)
         #collect all responses per prompt
-        with pandas.ExcelWritter("responses.xlsx") as xwrite:
+        with pandas.ExcelWriter("responses.xlsx") as xwrite:
             for athread in t:
                 sheetname=athread.name
                 df=getpdframeoftableparent('responses',athread.id, 'prompts')
