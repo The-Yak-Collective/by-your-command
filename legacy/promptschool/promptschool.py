@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 from typing import Optional
 import sqlite3
 import logging
+import csv
+import pandas
 
 
 from discord_promptschool import * #including client and tree
@@ -68,6 +70,13 @@ def getonerecord(tab, id):
     if not res:
         return None
     return one.set(res)
+def getpdframeoftable(tab):
+    return pandas.read_sql('select * from {} order by seq desc'.format(tab), db_c)
+def getpdframeoftableparent(tab,parent, parenttab):
+    line=pandas.read_sql('select * from {} where id={} order by seq desc limit 1'.format(parenttab,parent), db_c)
+    tab=pandas.read_sql('select * from {} where parentid={} order by seq desc'.format(tab,parent), db_c)
+    res=pandas.concat([line,tab], axis=1)
+    return res
 def getallrecords(tab, id):
     rows=db_c.execute('select * from {} where id=? order by seq desc'.format(tab),(id,)).fetchall()
     man=[]
@@ -203,6 +212,49 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
             return
         await interaction.response.send_message("course topic is:\n{}".format(one.contents), ephemeral=False)
         return
+
+    @app_commands.command(name="dump",description="create csv with prompts, responses and hints - under development")
+    async def course_show(self,interaction:discord.Interaction):
+        cur_chan_id=interaction.channel.id
+        one=getonerecord("courses",cur_chan_id)
+        if not one:
+            await interaction.response.send_message("you need to run show from within the course channel", ephemeral=True)
+            return
+        #make three files:
+        #1. course info (title, prompt names)
+        #2. csv file of prompts and all the hints for the prompt (one long record
+        #3. csv file of prompts and all responses for each prompt (one long record)
+        #we have course information, but get channel title
+        coursename=interaction.channel.name
+        #collect prompts + thread title
+        t=[]
+        async for athread in interaction.channel.archived_threads():
+            t.add(athread)
+        for athread in interaction.channel.threads:
+            t.add(athread)
+        coursefile=str(dir(one))+'\n'+"\n".join([x.name for x in t])
+        with open("coursefile.txt","w") as fd:
+            fd.write(coursefile)
+        #collect all hints per prompt
+        with pandas.ExcelWritter("hints.xlsx") as xwrite:
+            for athread in t:
+                sheetname=athread.name
+                df=getpdframeoftableparent('hints',athread.id, 'prompts')
+                df.to_excel(xwrite,sheetname=sheetname)
+        #collect all responses per prompt
+        with pandas.ExcelWritter("responses.xlsx") as xwrite:
+            for athread in t:
+                sheetname=athread.name
+                df=getpdframeoftableparent('responses',athread.id, 'prompts')
+                df.to_excel(xwrite,sheetname=sheetname)
+
+        await interaction.response.send_message("course dump (3 files)", ephemeral=True)
+        await interaction.followup.send("course",file=discord.File("coursefile.txt"),ephemeral=True)
+        await interaction.followup.send("hints",file=discord.File("hints.xlsx"),ephemeral=True)
+        await interaction.followup.send("responses",file=discord.File("responses.xlsx"),ephemeral=True)
+
+        return
+
 
 class psprompt(app_commands.Group):
     @app_commands.command(name="create",description="create a new prompt and a thread for discussing the prompt")
@@ -404,7 +456,7 @@ Participants:
 `/psprompt show` // gives a **public** post of the prompt of the thread you're in
 `/psresponse submit my response` // submits "my response" as your response to the prompt in the thread you're in; run again to change your response
 `/psresponse show` OR `recall` // shows your response
-`/pshint create a great hint` // allows you to add a hint. viewable using `/pshint show` or `recall`
+`/pshint create a great hint` // allows you to add a hint (with spoiler control). viewable at once or later using `/pshint show` or `recall`
 /pshelp - shows this or maybe a better message
 `/psreaction` // allows you to give a reaction to the prompt. not yet stored
 `/psjoin [REASON]` // run in the course channel, not thread, joins the course and you get notifications. optional reason
@@ -426,6 +478,7 @@ Participants:
 
 - to convert existing channels (but not their prompts at this time):
 /pscourse registerthischannel - registers current channel to be a course that /psXXX can manage
+- /pscourse dump - outputs the data entered for the current course as a csv file (under testing)
     '''
     await interaction.response.send_message(hm1, ephemeral=True)
     await interaction.followup.send(hm2, ephemeral=True)
