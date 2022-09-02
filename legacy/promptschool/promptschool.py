@@ -229,9 +229,9 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         #collect prompts + thread title
         t=[]
         async for athread in interaction.channel.archived_threads():
-            t.add(athread)
+            t.append(athread)
         for athread in interaction.channel.threads:
-            t.add(athread)
+            t.append(athread)
         coursefile=str(dir(one))+'\n'+"\n".join([x.name for x in t])
         with open("coursefile.txt","w") as fd:
             fd.write(coursefile)
