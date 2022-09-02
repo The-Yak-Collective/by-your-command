@@ -248,6 +248,7 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
 
         except:
             #probably no hints...
+            pass
         #collect all responses per prompt
         with pandas.ExcelWriter("responses.xlsx") as xwrite:
             for athread in t:
