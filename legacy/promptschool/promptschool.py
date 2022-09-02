@@ -235,23 +235,27 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         coursefile=str(dir(one))+'\n'+"\n".join([x.name for x in t])
         with open("coursefile.txt","w") as fd:
             fd.write(coursefile)
+        await interaction.response.send_message("course dump (3 files)", ephemeral=True)
+        await interaction.followup.send("course",file=discord.File("coursefile.txt"),ephemeral=True)
         #collect all hints per prompt
-        with pandas.ExcelWriter("hints.xlsx") as xwrite:
-            for athread in t:
-                sheetname=athread.name+str(athread.id)
-                df=getpdframeoftableparent('hints',athread.id, 'prompts')
-                df.to_excel(xwrite,sheetname="_ "+sheetname)
+        try:
+            with pandas.ExcelWriter("hints.xlsx") as xwrite:
+                for athread in t:
+                    sheetname=athread.name+str(athread.id)
+                    df=getpdframeoftableparent('hints',athread.id, 'prompts')
+                    df.to_excel(xwrite,sheetname="_ "+sheetname)
+            await interaction.followup.send("hints",file=discord.File("hints.xlsx"),ephemeral=True)
+
+        except:
+            #probably no hints...
         #collect all responses per prompt
         with pandas.ExcelWriter("responses.xlsx") as xwrite:
             for athread in t:
                 sheetname=athread.name+str(athread.id)
                 df=getpdframeoftableparent('responses',athread.id, 'prompts')
                 df.to_excel(xwrite,sheetname="_ "+sheetname)
-
-        await interaction.response.send_message("course dump (3 files)", ephemeral=True)
-        await interaction.followup.send("course",file=discord.File("coursefile.txt"),ephemeral=True)
-        await interaction.followup.send("hints",file=discord.File("hints.xlsx"),ephemeral=True)
         await interaction.followup.send("responses",file=discord.File("responses.xlsx"),ephemeral=True)
+
 
         return
 
