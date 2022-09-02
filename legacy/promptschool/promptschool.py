@@ -73,10 +73,10 @@ def getonerecord(tab, id):
         return None
     return one.set(res)
 def getpdframeoftable(tab):
-    return pandas.read_sql('select * from {} order by seq desc'.format(tab), db_c)
+    return pandas.read_sql('select * from {} order by seq desc'.format(tab), conn)
 def getpdframeoftableparent(tab,parent, parenttab):
-    line=pandas.read_sql('select * from {} where id={} order by seq desc limit 1'.format(parenttab,parent), db_c)
-    tab=pandas.read_sql('select * from {} where parentid={} order by seq desc'.format(tab,parent), db_c)
+    line=pandas.read_sql('select * from {} where id={} order by seq desc limit 1'.format(parenttab,parent), conn)
+    tab=pandas.read_sql('select * from {} where parentid={} order by seq desc'.format(tab,parent), conn)
     res=pandas.concat([line,tab], axis=1)
     return res
 def getallrecords(tab, id):
