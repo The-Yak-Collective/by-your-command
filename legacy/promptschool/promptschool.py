@@ -242,11 +242,11 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         #collect all hints per prompt
         #try:
         with pandas.ExcelWriter("hints.xlsx") as xwrite:
-            pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheetname="placeholder")
+            pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheet_name="placeholder")
             for athread in t:
                 sheetname=athread.name+str(athread.id)
                 df=getpdframeoftableparent('hints',athread.id, 'prompts')
-                df.to_excel(xwrite,sheetname="_ "+sheetname)
+                df.to_excel(xwrite,sheet_name="_ "+sheetname)
         await interaction.followup.send("hints",file=discord.File("hints.xlsx"),ephemeral=True)
 
         #except:
@@ -255,11 +255,11 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         #collect all responses per prompt
         #try:
         with pandas.ExcelWriter("responses.xlsx") as xwrite:
-            pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheetname="placeholder")
+            pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheet_name="placeholder")
             for athread in t:
                 sheetname=athread.name+str(athread.id)
                 df=getpdframeoftableparent('responses',athread.id, 'prompts')
-                df.to_excel(xwrite,sheetname="_ "+sheetname)
+                df.to_excel(xwrite,sheet_name="_ "+sheetname)
         await interaction.followup.send("responses",file=discord.File("responses.xlsx"),ephemeral=True)
         #except:
             #pass
