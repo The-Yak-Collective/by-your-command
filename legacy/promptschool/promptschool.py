@@ -241,28 +241,28 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         await interaction.followup.send("course",file=discord.File("coursefile.txt"),ephemeral=True)
         #collect all hints per prompt
         #try:
-            with pandas.ExcelWriter("hints.xlsx") as xwrite:
-                pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheetname="placeholder")
-                for athread in t:
-                    sheetname=athread.name+str(athread.id)
-                    df=getpdframeoftableparent('hints',athread.id, 'prompts')
-                    df.to_excel(xwrite,sheetname="_ "+sheetname)
-            await interaction.followup.send("hints",file=discord.File("hints.xlsx"),ephemeral=True)
+        with pandas.ExcelWriter("hints.xlsx") as xwrite:
+            pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheetname="placeholder")
+            for athread in t:
+                sheetname=athread.name+str(athread.id)
+                df=getpdframeoftableparent('hints',athread.id, 'prompts')
+                df.to_excel(xwrite,sheetname="_ "+sheetname)
+        await interaction.followup.send("hints",file=discord.File("hints.xlsx"),ephemeral=True)
 
         #except:
             #probably no hints...
-            pass
+            #pass
         #collect all responses per prompt
         #try:
-            with pandas.ExcelWriter("responses.xlsx") as xwrite:
-                pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheetname="placeholder")
-                for athread in t:
-                    sheetname=athread.name+str(athread.id)
-                    df=getpdframeoftableparent('responses',athread.id, 'prompts')
-                    df.to_excel(xwrite,sheetname="_ "+sheetname)
-            await interaction.followup.send("responses",file=discord.File("responses.xlsx"),ephemeral=True)
+        with pandas.ExcelWriter("responses.xlsx") as xwrite:
+            pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheetname="placeholder")
+            for athread in t:
+                sheetname=athread.name+str(athread.id)
+                df=getpdframeoftableparent('responses',athread.id, 'prompts')
+                df.to_excel(xwrite,sheetname="_ "+sheetname)
+        await interaction.followup.send("responses",file=discord.File("responses.xlsx"),ephemeral=True)
         #except:
-            pass
+            #pass
 
 
         return
