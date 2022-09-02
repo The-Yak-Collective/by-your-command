@@ -15,6 +15,7 @@ import sqlite3
 import logging
 import csv
 import pandas
+from slugify import slugify #python-slugify
 
 
 from discord_promptschool import * #including client and tree
@@ -244,9 +245,9 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         with pandas.ExcelWriter("hints.xlsx") as xwrite:
             pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheet_name="placeholder")
             for athread in t:
-                sheetname=athread.name+str(athread.id)
+                sheetname=slugify(athread.name+" "+str(athread.id))
                 df=getpdframeoftableparent('hints',athread.id, 'prompts')
-                df.to_excel(xwrite,sheet_name="_ "+sheetname)
+                df.to_excel(xwrite,sheet_name=sheetname)
         await interaction.followup.send("hints",file=discord.File("hints.xlsx"),ephemeral=True)
 
         #except:
@@ -257,9 +258,9 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         with pandas.ExcelWriter("responses.xlsx") as xwrite:
             pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheet_name="placeholder")
             for athread in t:
-                sheetname=athread.name+str(athread.id)
+                sheetname=slugify(athread.name+" "+str(athread.id))
                 df=getpdframeoftableparent('responses',athread.id, 'prompts')
-                df.to_excel(xwrite,sheet_name="_ "+sheetname)
+                df.to_excel(xwrite,sheet_name=sheetname)
         await interaction.followup.send("responses",file=discord.File("responses.xlsx"),ephemeral=True)
         #except:
             #pass
