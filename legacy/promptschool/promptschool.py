@@ -56,6 +56,8 @@ class standardrecord:
         return (self)
     def totuple(self):
         return(self.seq, self.id, self.creatorid,self.contents,self.filled,self.createdat,self.filledat,self.parentid,self.mlink,self.other)
+    def __str__(self):
+        return str(self.__class__) + ": " + str(self.__dict__)
 
 def putrecord(tab, rec):
     rec.createdat=int(time.time())
@@ -235,10 +237,10 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
         coursefile=str(one)+'\n'+"\n".join([x.name for x in t])
         with open("coursefile.txt","w") as fd:
             fd.write(coursefile)
-        await interaction.response.send_message("course dump (3 files, if they exist)", ephemeral=True)
+        await interaction.response.send_message("course dump (up to 3 files, if they exist)", ephemeral=True)
         await interaction.followup.send("course",file=discord.File("coursefile.txt"),ephemeral=True)
         #collect all hints per prompt
-        try:
+        #try:
             with pandas.ExcelWriter("hints.xlsx") as xwrite:
                 pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheetname="placeholder")
                 for athread in t:
@@ -247,11 +249,11 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
                     df.to_excel(xwrite,sheetname="_ "+sheetname)
             await interaction.followup.send("hints",file=discord.File("hints.xlsx"),ephemeral=True)
 
-        except:
+        #except:
             #probably no hints...
             pass
         #collect all responses per prompt
-        try:
+        #try:
             with pandas.ExcelWriter("responses.xlsx") as xwrite:
                 pandas.DataFrame([["hints","if any"]], columns=['first','second']).to_excel(xwrite,sheetname="placeholder")
                 for athread in t:
@@ -259,7 +261,7 @@ class pscourse(app_commands.Group):#commands: create, set, show, showall, recall
                     df=getpdframeoftableparent('responses',athread.id, 'prompts')
                     df.to_excel(xwrite,sheetname="_ "+sheetname)
             await interaction.followup.send("responses",file=discord.File("responses.xlsx"),ephemeral=True)
-        except:
+        #except:
             pass
 
 
