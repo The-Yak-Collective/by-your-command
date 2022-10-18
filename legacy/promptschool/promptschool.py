@@ -431,7 +431,7 @@ class pshint(app_commands.Group):
     @app_commands.command(name="recall",description="show (latest) hint, private, for now only one")
     async def hint_recall(self,interaction:discord.Interaction):
         cur_chan_id=interaction.channel.id
-        one=getqonerecord("hints",parentid=cur_chan_id,creatorid=interaction.user.id)
+        one=getqonerecord("hints",parentid=cur_chan_id)
         if not one:
             await interaction.response.send_message("failure to retrieve. you need to run recall from within a prompt-thread or you there is no hint available", ephemeral=True)
             return
@@ -441,7 +441,7 @@ class pshint(app_commands.Group):
     @app_commands.command(name="show",description="show latest hint, publicly")
     async def hint_show(self,interaction:discord.Interaction):
         cur_chan_id=interaction.channel.id
-        one=getqonerecord("hints",parentid=cur_chan_id,creatorid=interaction.user.id)
+        one=getqonerecord("hints",parentid=cur_chan_id)
         if not one:
             await interaction.response.send_message("failure to retrieve. you need to run show from within a prompt-thread or you there is no hint available", ephemeral=True)
             return
