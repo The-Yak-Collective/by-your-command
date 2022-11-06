@@ -1,5 +1,7 @@
 #seperate files so we can split up robot between multiple files, if we want
 
+import datetime
+
 import discord
 from discord.ext import commands
 
