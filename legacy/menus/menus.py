@@ -84,7 +84,7 @@ async def init_bot():
     with open(LOCALDIR+"/menu.yaml") as f:
         tmp=f.read()
     entries=yaml.load(tmp)
-    print("got:", entries)
+    print("---\n[" + datetime.datetime.now().astimezone().replace(microsecond=0).isoformat() + "]\ngot:", entries)
 
     links={}
     for entry in entries:
@@ -110,11 +110,11 @@ async def swap_codes(m,links):
     thefield=em.fields[0]
     thevalue=thefield.value #.replace('&[','[')
     parts=thevalue.split('&<')
-    print("the parts",parts)
-    print("the links:",links)
+    print("---\n[" + datetime.datetime.now().astimezone().replace(microsecond=0).isoformat() + "]\nthe parts",parts)
+    print("---\n[" + datetime.datetime.now().astimezone().replace(microsecond=0).isoformat() + "]\nthe links:",links)
     for i,p in enumerate(parts):
         if '>&' in p:
-            print("found:",p)
+            print("---\n[" + datetime.datetime.now().astimezone().replace(microsecond=0).isoformat() + "]\nfound:",p)
             pos=p.index(">&")
             thelink=links.get(p[:pos],"_error")
             if thelink=="_error":
@@ -167,11 +167,11 @@ async def dmchan(t):
 #create DM channel betwen bot and user
     target=bot.get_user(t)
     if (not target): 
-        print("unable to find user and create dm",flush=True)
+        print("---\n[" + datetime.datetime.now().astimezone().replace(microsecond=0).isoformat() + "]\nunable to find user and create dm",flush=True)
     return target
     target=target.dm_channel
     if (not target): 
-        print("need to create dm channel",flush=True)
+        print("---\n[" + datetime.datetime.now().astimezone().replace(microsecond=0).isoformat() + "]\nneed to create dm channel",flush=True)
         target=await bot.get_user(t).create_dm()
     return target
 
