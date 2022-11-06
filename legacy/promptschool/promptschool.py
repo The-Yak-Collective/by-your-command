@@ -353,8 +353,8 @@ class psprompt(app_commands.Group):
         if not one:
             await interaction.response.send_message("you need to run show from within a prompt-thread", ephemeral=True)
             return
-        print("reaction:",reaction,reaction.name)
-        print("words:",words)
+        print("---\n[" + datetime.datetime.now().astimezone().replace(microsecond=0).isoformat() + "]\nreaction:",reaction,reaction.name)
+        print("---\n[" + datetime.datetime.now().astimezone().replace(microsecond=0).isoformat() + "]\nwords:",words)
         if not words:
             words=""
         await interaction.response.send_message("this information is not yet being saved:\n"+reaction.name+" "+words, ephemeral=True)
@@ -582,7 +582,7 @@ async def on_ready():
         print([x.name for x in m])
 
     checkon_database()
-    print("promptschool is up!")
+    print("---\n[" + datetime.datetime.now().astimezone().replace(microsecond=0).isoformat() + "]\npromptschool is up!")
     print([x.name for x in tree.get_commands()])
     return
 
