@@ -1,7 +1,7 @@
 # By Your Command
 
 > [!important]
-> This code is under development, and has ***not** yet been tested!
+> This code is under development, and has ***not*** yet been tested!
 
 A small, modular Discord bot that (currently) provides two slash commands:
 
