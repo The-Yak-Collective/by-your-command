@@ -1,0 +1,9 @@
+#actions to do after pull to complete deploy. 
+exec >~/robot/promptschool/logfileofpostmerge
+exec 2>&1
+set -x
+set -v
+#pkill -9 promptschool.py #does not seem to work right
+kill -9 $(ps ax | grep 'promptschool.py' | awk '{printf $1 " "}')
+nohup python3 ~/robot/promptschool/promptschool.py 2>&1 &
+exit
