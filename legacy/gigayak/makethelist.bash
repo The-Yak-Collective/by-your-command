@@ -1,1 +1,0 @@
-sqlite3 -csv gigdatabase.db "select * from ${1} where filled=0" > thelist.csv

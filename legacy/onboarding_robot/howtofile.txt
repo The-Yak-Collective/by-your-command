@@ -1,3 +1,0 @@
-enter $howto X to see more details on item X
-newproject: start a project
-postgig:    post a gig
