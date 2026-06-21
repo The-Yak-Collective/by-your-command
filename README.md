@@ -1,18 +1,17 @@
-# by-your-command
+# By Your Command
 
-A small, modular Discord bot that provides two slash commands:
+> [!important]
+> This code is under development, and has ***not** yet been tested!
+
+A small, modular Discord bot that (currently) provides two slash commands:
 
 - **`/tfurl`** — "unfurl" a Discord message link by reposting that message's text in
   the current channel, attributed to its author and source channel.
 - **`/showmymode`** — toggle a "listen mode" marker emoji (default 🙊) on your server
   nickname. The marker auto-removes after a timeout (default 90 minutes).
 
-It is a clean rewrite of two commands from the legacy bots kept under
-[`legacy/`](legacy/) (see [Design decisions](#design-decisions) for what changed and
-why). The codebase is built so that **adding a new slash command is as simple as
+The codebase is built so that **adding a new slash command is as simple as
 copying one file**.
-
----
 
 ## Requirements
 
