@@ -15,19 +15,22 @@ STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/by-your-command"
 LOG_DIR="$STATE_DIR/logs"
 LOG_FILE="$LOG_DIR/update.log"
 
-# cron's PATH is minimal; make sure uv (and anything it needs) is reachable.
-export PATH="$HOME/.local/bin:$PATH"
-
 mkdir -p "$LOG_DIR"
 
 # Redirect the rest of this script's output to the update log.
 exec >>"$LOG_FILE" 2>&1
 echo "=== update $(date -Is) ==="
 
-cd "$REPO_DIR"
+# Update uv, but only if installed locally. Note that cron's PATH is minimal; make
+# sure uv (and anything it needs) is reachable.
+if [[ -x "$HOME/.local/bin/uv" ]]; then
+  export PATH="$HOME/.local/bin:$PATH"
+  uv self update
+fi
 
 # Fast-forward only: refuse to create merge commits on the deploy box. If the local
 # checkout has diverged from origin, this fails loudly instead of merging silently.
+cd "$REPO_DIR"
 branch="$(git rev-parse --abbrev-ref HEAD)"
 git pull --ff-only origin "$branch"
 
