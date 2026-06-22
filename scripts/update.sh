@@ -25,7 +25,7 @@ echo "=== update $(date -Is) ==="
 # sure uv (and anything it needs) is reachable.
 if [[ -x "$HOME/.local/bin/uv" ]]; then
   export PATH="$HOME/.local/bin:$PATH"
-  uv self update
+  uv self update --no-progress
 fi
 
 # Fast-forward only: refuse to create merge commits on the deploy box. If the local
