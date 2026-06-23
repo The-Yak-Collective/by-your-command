@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -55,11 +56,11 @@ MAX_DURATION_MINUTES = 7 * 24 * 60  # one week
 store = JSONStore(COMMAND_NAME)
 
 
-def _empty_state() -> dict:
+def _empty_state() -> dict[str, Any]:
     return {"version": 1, "users": {}}
 
 
-def _normalize_state(raw: object) -> dict:
+def _normalize_state(raw: object) -> dict[str, Any]:
     """Return a structurally valid state dict, dropping any malformed records.
 
     Persisted state can be hand-edited or partially written, so we never trust its
@@ -100,11 +101,11 @@ def _normalize_state(raw: object) -> dict:
     return state
 
 
-def _load_state() -> dict:
+def _load_state() -> dict[str, Any]:
     return _normalize_state(store.load(STATE_FILE, default=_empty_state()))
 
 
-def _save_state(state: dict) -> None:
+def _save_state(state: dict[str, Any]) -> None:
     store.save(STATE_FILE, state)
 
 
@@ -118,7 +119,7 @@ def _edit_error_message(exc: Exception) -> str:
 
 
 def _nick_to_restore(
-    record: dict | None, member: discord.Member, char: str
+    record: dict[str, Any] | None, member: discord.Member, char: str
 ) -> str | None:
     """Decide what nickname to restore when removing a marker.
 
@@ -134,7 +135,7 @@ def _nick_to_restore(
 
 class ShowMyMode(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
-        self.bot = bot
+        self.bot: commands.Bot = bot
 
     @app_commands.command(
         name="showmymode",

@@ -43,7 +43,7 @@ def _user_can_view(user: discord.abc.User, channel: object) -> bool:
 
 class TfUrl(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
-        self.bot = bot
+        self.bot: commands.Bot = bot
 
     @app_commands.command(
         name="tfurl",

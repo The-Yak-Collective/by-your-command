@@ -57,7 +57,7 @@ class JSONStore:
 
     def __init__(self, command_name: str) -> None:
         # e.g. ${XDG_STATE_HOME}/by-your-command/showmymode/
-        self.dir = base_dir() / _require_simple_name(command_name)
+        self.dir: Path = base_dir() / _require_simple_name(command_name)
 
     def _path(self, filename: str) -> Path:
         # Validate every filename too, so a relative name can never escape self.dir.

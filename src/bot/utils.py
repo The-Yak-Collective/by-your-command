@@ -9,7 +9,7 @@ sends the chunks produced by :func:`chunk_message`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:  # imported only for type hints; avoids a runtime discord dependency
@@ -110,7 +110,7 @@ def remove_mode_prefix(name: str, char: str) -> str:
     return name
 
 
-def expired_user_ids(users: dict, now: int) -> list[str]:
+def expired_user_ids(users: dict[str, Any], now: int) -> list[str]:
     """Return the user IDs whose mode expiry time is at or before ``now``.
 
     ``users`` maps user-id strings to records containing an integer ``expires_at``

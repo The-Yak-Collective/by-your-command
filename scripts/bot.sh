@@ -23,7 +23,7 @@ LOG_FILE="$LOG_DIR/bot.log"
 # cron runs with a minimal PATH; the uv installer drops uv in ~/.local/bin. Make
 # sure we can find it however this script was invoked.
 if [[ -x "$HOME/.local/bin/uv" ]]; then
-  export PATH="$HOME/.local/bin:$PATH"
+	export PATH="$HOME/.local/bin:$PATH"
 fi
 
 # Echo the PID of the running bot and return 0, or return 1 if it is not running.

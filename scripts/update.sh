@@ -24,8 +24,8 @@ echo "=== update $(date -Is) ==="
 # Update uv, but only if installed locally. Note that cron's PATH is minimal; make
 # sure uv (and anything it needs) is reachable.
 if [[ -x "$HOME/.local/bin/uv" ]]; then
-  export PATH="$HOME/.local/bin:$PATH"
-  uv self update --no-progress
+	export PATH="$HOME/.local/bin:$PATH"
+	uv self update --no-progress
 fi
 
 # Fast-forward only: refuse to create merge commits on the deploy box. If the local
@@ -49,21 +49,21 @@ uv run pytest -q || verify_ok=false
 echo "--- verifying: ruff"
 uv run ruff check || verify_ok=false
 if command -v shellcheck >/dev/null 2>&1; then
-  echo "--- verifying: shellcheck"
-  shellcheck scripts/*.sh init.sh || verify_ok=false
+	echo "--- verifying: shellcheck"
+	shellcheck scripts/*.sh init.sh || verify_ok=false
 else
-  echo "--- verifying: shellcheck not installed, skipping shell lint"
+	echo "--- verifying: shellcheck not installed, skipping shell lint"
 fi
 
 if [[ "$verify_ok" != true ]]; then
-  # Roll the checkout back to the pre-pull commit and restore its dependencies, then
-  # leave the already-running bot untouched. Better a slightly stale bot than a broken
-  # one. The next nightly run will retry once the upstream problem is fixed.
-  echo "verification FAILED; rolling back to $previous_head and leaving the bot running"
-  git reset --hard "$previous_head"
-  uv sync
-  echo "=== update aborted $(date -Is) ==="
-  exit 1
+	# Roll the checkout back to the pre-pull commit and restore its dependencies, then
+	# leave the already-running bot untouched. Better a slightly stale bot than a broken
+	# one. The next nightly run will retry once the upstream problem is fixed.
+	echo "verification FAILED; rolling back to $previous_head and leaving the bot running"
+	git reset --hard "$previous_head"
+	uv sync
+	echo "=== update aborted $(date -Is) ==="
+	exit 1
 fi
 
 # Verification passed — restart the bot so it picks up the new code and dependencies.
