@@ -42,3 +42,34 @@ testpaths = ["tests"]
 # Make `import bot.*` resolve from src/ even when the package is not installed,
 # so the tests run identically inside or outside the uv-managed environment.
 pythonpath = ["src"]
+
+# basedpyright (type checker). Production code (the default execution environment)
+# keeps basedpyright's full strict checking. The test suite is held to a looser,
+# standard-like level via the per-directory override below: it relies on deliberately
+# lightweight, duck-typed fakes for Discord objects plus untyped pytest fixtures, which
+# legitimately do not satisfy the strict and nominal rules disabled here.
+#
+# (basedpyright 1.39 ignores `typeCheckingMode` inside executionEnvironments, so we
+# express "standard for tests" as explicit per-rule overrides instead.)
+[[tool.basedpyright.executionEnvironments]]
+root = "tests"
+# Strict-only rules that "standard" mode leaves off — pure noise for test code:
+reportAny = false
+reportExplicitAny = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownParameterType = false
+reportUnknownArgumentType = false
+reportUnknownLambdaType = false
+reportMissingParameterType = false
+reportUnannotatedClassAttribute = false
+reportUnusedCallResult = false
+reportUnusedParameter = false
+reportImplicitOverride = false
+reportUninitializedInstanceVariable = false
+reportPrivateUsage = false
+# Nominal-type rules the duck-typed fakes intentionally trip (a FakeMember is not a
+# real discord.Member); making the fakes full subtypes would defeat their purpose:
+reportArgumentType = false
+reportIncompatibleMethodOverride = false
+reportCallIssue = false
