@@ -32,3 +32,18 @@ def test_resolve_duration_rejects_non_positive():
         resolve_duration_minutes(0, default=90)
     with pytest.raises(ValueError):
         resolve_duration_minutes(-5, default=90)
+
+
+def test_resolve_duration_accepts_value_at_maximum():
+    # The boundary itself is allowed; only values strictly above it are rejected.
+    assert resolve_duration_minutes(10080, default=90, maximum=10080) == 10080
+
+
+def test_resolve_duration_rejects_above_maximum():
+    with pytest.raises(ValueError):
+        resolve_duration_minutes(10081, default=90, maximum=10080)
+
+
+def test_resolve_duration_no_maximum_allows_large_values():
+    # With no maximum (the default), the original "any positive value" behaviour holds.
+    assert resolve_duration_minutes(10**9, default=90) == 10**9

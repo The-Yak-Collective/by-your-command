@@ -30,14 +30,43 @@ fi
 
 # Fast-forward only: refuse to create merge commits on the deploy box. If the local
 # checkout has diverged from origin, this fails loudly instead of merging silently.
+# Remember where we were first, so a failed verification can roll the deploy back.
 cd "$REPO_DIR"
 branch="$(git rev-parse --abbrev-ref HEAD)"
+previous_head="$(git rev-parse HEAD)"
 git pull --ff-only origin "$branch"
 
 # Install any new or updated dependencies from the refreshed lockfile.
 uv sync
 
-# Restart the bot so it picks up the new code and dependencies.
+# Verify the freshly-pulled code BEFORE touching the running bot. A bad commit or
+# dependency bump must not be deployed automatically. We run the test suite and the
+# linters; shell lint is skipped gracefully if shellcheck isn't on the deploy box.
+# `|| verify_ok=false` keeps `set -e` from aborting before we can roll back.
+verify_ok=true
+echo "--- verifying: pytest"
+uv run pytest -q || verify_ok=false
+echo "--- verifying: ruff"
+uv run ruff check || verify_ok=false
+if command -v shellcheck >/dev/null 2>&1; then
+  echo "--- verifying: shellcheck"
+  shellcheck scripts/*.sh init.sh || verify_ok=false
+else
+  echo "--- verifying: shellcheck not installed, skipping shell lint"
+fi
+
+if [[ "$verify_ok" != true ]]; then
+  # Roll the checkout back to the pre-pull commit and restore its dependencies, then
+  # leave the already-running bot untouched. Better a slightly stale bot than a broken
+  # one. The next nightly run will retry once the upstream problem is fixed.
+  echo "verification FAILED; rolling back to $previous_head and leaving the bot running"
+  git reset --hard "$previous_head"
+  uv sync
+  echo "=== update aborted $(date -Is) ==="
+  exit 1
+fi
+
+# Verification passed — restart the bot so it picks up the new code and dependencies.
 "$SCRIPT_DIR/bot.sh" restart
 
 echo "=== update complete $(date -Is) ==="
