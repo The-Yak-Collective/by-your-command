@@ -1,8 +1,11 @@
 """/tfurl — "unfurl" a Discord message link by reposting its content in-channel.
 
-Given a link to a message, the bot fetches that message and reposts its text in the
-current channel, attributed to the original author and source channel. This is a
-rewrite of the legacy slashayak ``tfurl`` command.
+Given a link to a message, the bot fetches that message and reposts it in the current
+channel, attributed to the original author and source channel. The text, any uploaded
+attachments (re-uploaded so they render permanently), any rich (bot/webhook) embeds,
+and any stickers are all carried across — image stickers re-uploaded, and Discord's
+non-image (Lottie) stickers named in text. This is a rewrite of the legacy slashayak
+``tfurl`` command, which copied only the text.
 
 Disclosure is deliberately constrained: the command only unfurls messages from the
 *current* server, and only when the person invoking it could already read the source
@@ -16,6 +19,7 @@ edit the body — :mod:`bot.client` auto-discovers it on the next start.
 
 from __future__ import annotations
 
+import io
 import logging
 
 import discord
@@ -76,11 +80,6 @@ class TfUrl(commands.Cog):
             )
             return
 
-        # Repost the content, attributed to its author and source channel. We send
-        # with AllowedMentions.none(): the <@id>/<#id> attribution tokens and any
-        # @everyone/@here/role/user mentions copied from the body all render as text
-        # but notify nobody, so a linked message can't make the bot ping people.
-        body = f"<@{message.author.id}> in <#{channel_id}>:\n{message.content}"
         destination = interaction.channel
         if not isinstance(destination, discord.abc.Messageable):
             # Practically unreachable — a slash command is invoked from a messageable
@@ -89,10 +88,135 @@ class TfUrl(commands.Cog):
                 "I can't repost into this kind of channel.", ephemeral=True
             )
             return
+
+        # message.content is *only* the text the author typed; uploaded files, rich
+        # preview cards, and stickers hang off separate fields. Gather everything we
+        # mean to repost — downloading attachments and image stickers — before posting
+        # anything, so the text can name any sticker we can't re-render as an image.
+        files, rich_embeds, sticker_notes, dropped = await self._collect_media(message)
+
+        # Attribute the repost to its author and source channel. Stickers we can't
+        # reproduce as an image (Discord's standard, Lottie ones) are shown as a text
+        # marker so the channel still sees that a sticker was sent.
+        body = f"<@{message.author.id}> in <#{channel_id}>:\n{message.content}"
+        if sticker_notes:
+            body += "\n" + " ".join(f"[sticker: {name}]" for name in sticker_notes)
+
+        # Post the text first: it anchors the unfurl and, unlike re-uploaded files,
+        # can never fail on a size limit. Every send uses AllowedMentions.none(), so
+        # the <@id>/<#id> attribution and any mentions copied from the body render as
+        # text but notify nobody — a linked message can't make the bot ping people.
         await splitsend(
             destination, body, allowed_mentions=discord.AllowedMentions.none()
         )
-        await interaction.followup.send("Done — unfurled below.", ephemeral=True)
+        dropped += await self._send_media(destination, files, rich_embeds)
+
+        confirmation = "Done — unfurled below."
+        if dropped:
+            # Tell the invoker (privately) about anything we couldn't reproduce —
+            # most often a file too large for this channel — rather than dropping it
+            # without a trace.
+            confirmation += f" ({dropped} attachment(s) couldn't be reposted here.)"
+        await interaction.followup.send(confirmation, ephemeral=True)
+
+    async def _collect_media(
+        self, message: discord.Message
+    ) -> tuple[list[discord.File], list[discord.Embed], list[str], int]:
+        """Gather everything to repost beneath the copied text.
+
+        Returns ``(files, rich_embeds, sticker_notes, dropped)``:
+
+        * ``files`` — attachments and image stickers re-fetched as uploadable files.
+          Attachments are re-uploaded rather than linked so they render permanently,
+          instead of via a CDN URL that Discord now signs and expires within a day; a
+          spoiler-marked attachment stays spoilered.
+        * ``rich_embeds`` — only *rich* (bot/webhook) embeds. Discord refuses to
+          re-post its own auto-generated link/image previews and regenerates them for
+          free from any URL left in the copied text.
+        * ``sticker_notes`` — names of stickers we can't reproduce as an image (the
+          standard Lottie stickers, or any that won't download); the caller shows
+          these as text so the channel still sees them.
+        * ``dropped`` — count of attachments whose bytes couldn't be fetched at all.
+        """
+        files: list[discord.File] = []
+        dropped = 0
+        for attachment in message.attachments:
+            try:
+                # to_file() strips the spoiler flag by default, so set it explicitly.
+                files.append(await attachment.to_file(spoiler=attachment.is_spoiler()))
+            except discord.HTTPException as exc:
+                log.info(
+                    "tfurl: could not fetch attachment %r: %s", attachment.filename, exc
+                )
+                dropped += 1
+
+        sticker_notes: list[str] = []
+        for sticker in message.stickers:
+            sticker_file = await self._sticker_to_file(sticker)
+            if sticker_file is None:
+                sticker_notes.append(sticker.name)
+            else:
+                files.append(sticker_file)
+
+        rich_embeds = [embed for embed in message.embeds if embed.type == "rich"]
+        return files, rich_embeds, sticker_notes, dropped
+
+    async def _sticker_to_file(
+        self, sticker: discord.StickerItem
+    ) -> discord.File | None:
+        """Re-download a sticker as an uploadable image, or ``None`` if it isn't one.
+
+        Custom guild stickers (PNG/APNG/GIF) come back as a :class:`discord.File` named
+        after the sticker. Discord's standard stickers are Lottie (vector JSON), not an
+        image we can render, so those return ``None`` — as does any sticker whose bytes
+        can't be fetched.
+        """
+        if sticker.format is discord.StickerFormatType.lottie:
+            return None
+        try:
+            data = await sticker.read()
+        except discord.HTTPException as exc:
+            log.info("tfurl: could not fetch sticker %r: %s", sticker.name, exc)
+            return None
+        filename = f"{sticker.name}.{sticker.format.file_extension}"
+        return discord.File(io.BytesIO(data), filename=filename)
+
+    async def _send_media(
+        self,
+        destination: discord.abc.Messageable,
+        files: list[discord.File],
+        rich_embeds: list[discord.Embed],
+    ) -> int:
+        """Send the re-uploaded files and forwarded embeds beneath the copied text.
+
+        Sent as a single trailing message so a size-limit rejection can't duplicate or
+        block the text already posted. Returns the number of files dropped because the
+        message was rejected (most often a re-uploaded attachment too large for this
+        channel); any rich embeds are still delivered on a files-less retry.
+        """
+        if not files and not rich_embeds:
+            return 0
+
+        # Keep mentions suppressed here too. An embed can't ping on its own, but
+        # applying AllowedMentions.none() to every send keeps the "a linked message
+        # can never make the bot notify anyone" guarantee uniform. We branch on what's
+        # present rather than passing empty lists, since the typed API rejects ``None``.
+        suppress = discord.AllowedMentions.none()
+        try:
+            if files and rich_embeds:
+                await destination.send(
+                    files=files, embeds=rich_embeds, allowed_mentions=suppress
+                )
+            elif files:
+                await destination.send(files=files, allowed_mentions=suppress)
+            else:
+                await destination.send(embeds=rich_embeds, allowed_mentions=suppress)
+        except discord.HTTPException as exc:
+            log.info("tfurl: could not repost files, dropping them: %s", exc)
+            if rich_embeds:
+                await destination.send(embeds=rich_embeds, allowed_mentions=suppress)
+            return len(files)
+        return 0
 
     async def _resolve_channel(
         self, interaction: discord.Interaction, channel_id: int

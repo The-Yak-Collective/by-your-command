@@ -5,8 +5,10 @@
 
 A small, modular Discord bot that (currently) provides two slash commands:
 
-- **`/tfurl`** — "unfurl" a Discord message link by reposting that message's text in
-  the current channel, attributed to its author and source channel.
+- **`/tfurl`** — "unfurl" a Discord message link by reposting that message in the
+  current channel, attributed to its author and source channel. The text, any uploaded
+  attachments (re-uploaded so they keep rendering), any rich (bot/webhook) embeds, and
+  any stickers are all carried across.
 - **`/showmymode`** — toggle a "listen mode" marker emoji (default 🙊) on your server
   nickname. The marker auto-removes after a timeout (default 90 minutes).
 
