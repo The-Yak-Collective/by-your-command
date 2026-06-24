@@ -1,8 +1,5 @@
 # By Your Command
 
-> [!important]
-> This code is under development, and has ***not*** yet been tested!
-
 A small, modular Discord bot that (currently) provides two slash commands:
 
 - **`/tfurl`** — "unfurl" a Discord message link by reposting that message in the
