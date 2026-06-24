@@ -125,19 +125,32 @@ def expired_user_ids(users: dict[str, Any], now: int) -> list[str]:
 
 
 def resolve_duration_minutes(
-    minutes: int | None, default: int, maximum: int | None = None
+    minutes: int | None,
+    default: int,
+    maximum: int | None = None,
+    *,
+    minimum: int = 1,
 ) -> int:
     """Validate an optional, user-supplied duration in minutes.
 
-    Returns ``default`` when ``minutes`` is None and ``minutes`` itself when it is a
-    positive integer within range. Raises ``ValueError`` — with a user-facing message —
-    for zero or negative values, or for values above ``maximum`` when one is given
-    (``maximum`` of None means "no upper bound", preserving the original behaviour).
+    Returns ``default`` when ``minutes`` is None, and ``minutes`` itself when it is an
+    integer within ``[minimum, maximum]``. Raises ``ValueError`` — with a user-facing
+    message — for values below ``minimum`` (which defaults to 1, so zero and negatives
+    are always rejected) or above ``maximum`` when one is given (``maximum`` of None
+    means "no upper bound"). ``minimum`` lets a caller refuse a duration finer than it
+    can act on — e.g. shorter than the maintenance tick that enforces the timeout.
+
+    ``minimum`` applies only to an explicit ``minutes``; a None value still returns
+    ``default`` unchanged.
     """
     if minutes is None:
         return default
-    if minutes <= 0:
-        raise ValueError("Please give a positive number of minutes.")
+    if minutes < minimum:
+        # Keep the familiar wording when the floor is just "must be positive"; only an
+        # explicitly raised floor (e.g. the maintenance tick) needs to name the number.
+        if minimum <= 1:
+            raise ValueError("Please give a positive number of minutes.")
+        raise ValueError(f"Please choose at least {minimum} minutes.")
     if maximum is not None and minutes > maximum:
         raise ValueError(
             f"That's too long — please choose at most {maximum} minutes "

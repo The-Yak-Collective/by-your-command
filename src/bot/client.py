@@ -19,10 +19,6 @@ from . import config, maintenance
 
 log = logging.getLogger(__name__)
 
-# How often the background maintenance loop runs. 15 minutes keeps the /showmymode
-# 90-minute expiry feeling timely without hammering the Discord API.
-MAINTENANCE_INTERVAL_MINUTES = 15
-
 
 def _build_intents() -> discord.Intents:
     """Return the gateway intents the bot's commands require.
@@ -86,7 +82,9 @@ class ByYourCommandBot(commands.Bot):
             synced = await self.tree.sync()
             log.info("synced %d command(s) globally (may take up to ~1h)", len(synced))
 
-    @tasks.loop(minutes=MAINTENANCE_INTERVAL_MINUTES)
+    # The tick cadence lives in bot.maintenance (which owns the periodic-action
+    # contract) so a command can derive its minimum timeout from the same source.
+    @tasks.loop(minutes=maintenance.TICK_INTERVAL_MINUTES)
     async def maintenance_loop(self) -> None:
         """Run every registered periodic maintenance action, once per tick."""
         await maintenance.run_periodic(self)

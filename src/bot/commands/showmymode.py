@@ -181,10 +181,15 @@ class ShowMyMode(commands.Cog):
         minutes: int | None,
     ) -> None:
         # Validate the optional duration before changing anything. The helper raises
-        # with a user-facing message for both non-positive and over-the-cap values.
+        # with a user-facing message for an over-the-cap value or one shorter than the
+        # maintenance tick — the marker can't be removed before the next sweep, so we
+        # refuse a timeout finer than that sweep interval.
         try:
             duration = resolve_duration_minutes(
-                minutes, DEFAULT_DURATION_MINUTES, MAX_DURATION_MINUTES
+                minutes,
+                DEFAULT_DURATION_MINUTES,
+                MAX_DURATION_MINUTES,
+                minimum=maintenance.TICK_INTERVAL_MINUTES,
             )
         except ValueError as exc:
             await interaction.response.send_message(str(exc), ephemeral=True)

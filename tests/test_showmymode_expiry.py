@@ -47,3 +47,19 @@ def test_resolve_duration_rejects_above_maximum():
 def test_resolve_duration_no_maximum_allows_large_values():
     # With no maximum (the default), the original "any positive value" behaviour holds.
     assert resolve_duration_minutes(10**9, default=90) == 10**9
+
+
+def test_resolve_duration_rejects_below_minimum():
+    # A value finer than the caller can act on (e.g. shorter than the sweep tick).
+    with pytest.raises(ValueError):
+        resolve_duration_minutes(3, default=90, minimum=5)
+
+
+def test_resolve_duration_accepts_value_at_minimum():
+    # The floor itself is allowed; only values strictly below it are rejected.
+    assert resolve_duration_minutes(5, default=90, minimum=5) == 5
+
+
+def test_resolve_duration_minimum_does_not_apply_to_default():
+    # A None duration returns the default untouched, even below the stated minimum.
+    assert resolve_duration_minutes(None, default=2, minimum=5) == 2

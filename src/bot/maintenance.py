@@ -6,7 +6,8 @@ function), and :mod:`bot.client`'s maintenance loop runs them:
 
 * **startup** actions run exactly once, after the gateway is ready (so guild/member
   data is available) — driven by the maintenance loop's ``before_loop`` hook.
-* **periodic** actions run on every tick of the maintenance loop (every 15 minutes).
+* **periodic** actions run on every tick of the maintenance loop (see
+  :data:`TICK_INTERVAL_MINUTES`).
 
 Each action is an ``async`` callable taking the bot instance. Exceptions are logged
 and swallowed so that one misbehaving action can never stop the loop or crash the
@@ -19,6 +20,14 @@ import logging
 from collections.abc import Awaitable, Callable
 
 log = logging.getLogger(__name__)
+
+# How often bot.client's maintenance loop ticks. This is the granularity of every
+# periodic action: an expiry can only be noticed at the next tick, so it also sets the
+# floor on any user-facing timeout (see utils.resolve_duration_minutes' ``minimum``).
+# One minute is the finest whole-minute cadence discord.ext.tasks offers; the sweep
+# itself is cheap (a local state read), reaching the Discord API only when something
+# has actually expired.
+TICK_INTERVAL_MINUTES = 1
 
 # A maintenance action receives the bot/client and returns an awaitable. The bot is
 # typed loosely as ``object`` to avoid importing (and depending on) bot.client here.

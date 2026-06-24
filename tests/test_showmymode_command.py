@@ -126,3 +126,32 @@ def test_turn_on_accepts_duration_at_maximum(isolated_store):
 
     assert member.nick == "🙊Erin"
     assert "46" in showmymode._load_state()["users"]
+
+
+def test_turn_on_rejects_duration_below_tick(isolated_store, monkeypatch):
+    # The minimum timeout tracks the maintenance tick: a value shorter than one tick
+    # (which the sweep could never honor) is refused — nothing is changed or persisted,
+    # and the user is told the floor. Bumping the tick proves the floor follows it.
+    monkeypatch.setattr(showmymode.maintenance, "TICK_INTERVAL_MINUTES", 5)
+    cog = _cog()
+    member = FakeMember(47, nick=None, username="Frank")
+    interaction = _interaction()
+
+    asyncio.run(cog._turn_on(interaction, member, "🙊", 3))
+
+    assert member.edits == []
+    assert member.nick is None
+    assert "47" not in showmymode._load_state()["users"]
+    assert "at least 5" in interaction.response.messages[-1][0]
+
+
+def test_turn_on_accepts_duration_at_tick(isolated_store, monkeypatch):
+    # A timeout exactly equal to the tick is allowed (the boundary is inclusive).
+    monkeypatch.setattr(showmymode.maintenance, "TICK_INTERVAL_MINUTES", 5)
+    cog = _cog()
+    member = FakeMember(48, nick=None, username="Gina")
+
+    asyncio.run(cog._turn_on(_interaction(), member, "🙊", 5))
+
+    assert member.nick == "🙊Gina"
+    assert "48" in showmymode._load_state()["users"]
