@@ -92,7 +92,7 @@ class TfUrl(commands.Cog):
         await splitsend(
             destination, body, allowed_mentions=discord.AllowedMentions.none()
         )
-        await interaction.followup.send("Done — unfurled above.", ephemeral=True)
+        await interaction.followup.send("Done — unfurled below.", ephemeral=True)
 
     async def _resolve_channel(
         self, interaction: discord.Interaction, channel_id: int
