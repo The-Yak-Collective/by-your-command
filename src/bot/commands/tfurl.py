@@ -2,10 +2,18 @@
 
 Given a link to a message, the bot fetches that message and reposts it in the current
 channel, attributed to the original author and source channel. The text, any uploaded
-attachments (re-uploaded so they render permanently), any rich (bot/webhook) embeds,
+attachments (re-uploaded so they render permanently), any bot/webhook-authored embeds,
 and any stickers are all carried across — image stickers re-uploaded, and Discord's
 non-image (Lottie) stickers named in text. This is a rewrite of the legacy slashayak
 ``tfurl`` command, which copied only the text.
+
+Reproducing embeds exactly once takes care: Discord auto-generates a fresh link
+preview for any URL left in the copied text, so we must never *also* re-post an embed
+for that same URL, or the reader sees it twice. We decide per source author, not per
+embed type: a human's message can only carry Discord's own auto previews (which we
+drop and let Discord regenerate from the copied URL), whereas a bot's or webhook's
+embeds are application-authored cards Discord will not regenerate (which we forward,
+suppressing auto previews on the copied text so its URLs can't double them up).
 
 Disclosure is deliberately constrained: the command only unfurls messages from the
 *current* server, and only when the person invoking it could already read the source
@@ -89,11 +97,22 @@ class TfUrl(commands.Cog):
             )
             return
 
-        # message.content is *only* the text the author typed; uploaded files, rich
-        # preview cards, and stickers hang off separate fields. Gather everything we
-        # mean to repost — downloading attachments and image stickers — before posting
+        # Only a bot or webhook can author its own embeds; a human's message can only
+        # carry Discord's auto-generated link previews. This is what decides whether an
+        # embed is ours to forward or Discord's to regenerate — a far more reliable
+        # signal than embed.type, which Discord marks deprecated and sets to "rich" for
+        # some auto previews too (the source of the duplicate-embed bug this fixes).
+        from_app = message.webhook_id is not None or bool(
+            getattr(message.author, "bot", False)
+        )
+
+        # message.content is *only* the text the author typed; uploaded files, embed
+        # cards, and stickers hang off separate fields. Gather everything we mean to
+        # repost — downloading attachments and image stickers — before posting
         # anything, so the text can name any sticker we can't re-render as an image.
-        files, rich_embeds, sticker_notes, dropped = await self._collect_media(message)
+        files, carried_embeds, sticker_notes, dropped = await self._collect_media(
+            message, from_app
+        )
 
         # Attribute the repost to its author and source channel. Stickers we can't
         # reproduce as an image (Discord's standard, Lottie ones) are shown as a text
@@ -102,37 +121,52 @@ class TfUrl(commands.Cog):
         if sticker_notes:
             body += "\n" + " ".join(f"[sticker: {name}]" for name in sticker_notes)
 
+        # Suppress Discord's auto previews on the copied text when we're forwarding the
+        # source's own embed cards (so a URL in the text can't spawn a second copy of
+        # one), and also when the source itself had its previews suppressed (so we don't
+        # re-introduce a preview the author deliberately removed). Otherwise leave them
+        # on: that's how a plain link's preview is reproduced — Discord regenerates it
+        # from the URL for free, at full fidelity.
+        suppress_text = bool(message.flags.suppress_embeds) or bool(carried_embeds)
+
         # Post the text first: it anchors the unfurl and, unlike re-uploaded files,
         # can never fail on a size limit. Every send uses AllowedMentions.none(), so
         # the <@id>/<#id> attribution and any mentions copied from the body render as
         # text but notify nobody — a linked message can't make the bot ping people.
         await splitsend(
-            destination, body, allowed_mentions=discord.AllowedMentions.none()
+            destination,
+            body,
+            allowed_mentions=discord.AllowedMentions.none(),
+            suppress_embeds=suppress_text,
         )
-        dropped += await self._send_media(destination, files, rich_embeds)
+        dropped += await self._send_media(destination, files, carried_embeds)
 
         confirmation = "Done — unfurled below."
         if dropped:
-            # Tell the invoker (privately) about anything we couldn't reproduce —
-            # most often a file too large for this channel — rather than dropping it
-            # without a trace.
-            confirmation += f" ({dropped} attachment(s) couldn't be reposted here.)"
+            # Tell the invoker (privately) about anything we couldn't reproduce — most
+            # often a file too large for this channel, or an embed the send rejected —
+            # rather than dropping it without a trace.
+            confirmation += f" ({dropped} item(s) couldn't be reposted here.)"
         await interaction.followup.send(confirmation, ephemeral=True)
 
     async def _collect_media(
-        self, message: discord.Message
+        self, message: discord.Message, from_app: bool
     ) -> tuple[list[discord.File], list[discord.Embed], list[str], int]:
         """Gather everything to repost beneath the copied text.
 
-        Returns ``(files, rich_embeds, sticker_notes, dropped)``:
+        Returns ``(files, carried_embeds, sticker_notes, dropped)``:
 
         * ``files`` — attachments and image stickers re-fetched as uploadable files.
           Attachments are re-uploaded rather than linked so they render permanently,
           instead of via a CDN URL that Discord now signs and expires within a day; a
           spoiler-marked attachment stays spoilered.
-        * ``rich_embeds`` — only *rich* (bot/webhook) embeds. Discord refuses to
-          re-post its own auto-generated link/image previews and regenerates them for
-          free from any URL left in the copied text.
+        * ``carried_embeds`` — the embeds we forward ourselves. Only bot/webhook
+          messages (``from_app``) carry application-authored cards Discord won't
+          regenerate; a human's embeds are all auto previews, which we drop and let
+          Discord regenerate from the URL left in the copied text (re-posting them
+          would duplicate that regenerated preview). We still filter carried embeds to
+          ``type == "rich"`` so any auto preview Discord attached to a *bot's* own
+          text URL is dropped and regenerated rather than double-posted.
         * ``sticker_notes`` — names of stickers we can't reproduce as an image (the
           standard Lottie stickers, or any that won't download); the caller shows
           these as text so the channel still sees them.
@@ -158,8 +192,12 @@ class TfUrl(commands.Cog):
             else:
                 files.append(sticker_file)
 
-        rich_embeds = [embed for embed in message.embeds if embed.type == "rich"]
-        return files, rich_embeds, sticker_notes, dropped
+        carried_embeds = (
+            [embed for embed in message.embeds if embed.type == "rich"]
+            if from_app
+            else []
+        )
+        return files, carried_embeds, sticker_notes, dropped
 
     async def _sticker_to_file(
         self, sticker: discord.StickerItem
@@ -185,16 +223,20 @@ class TfUrl(commands.Cog):
         self,
         destination: discord.abc.Messageable,
         files: list[discord.File],
-        rich_embeds: list[discord.Embed],
+        embeds: list[discord.Embed],
     ) -> int:
         """Send the re-uploaded files and forwarded embeds beneath the copied text.
 
         Sent as a single trailing message so a size-limit rejection can't duplicate or
-        block the text already posted. Returns the number of files dropped because the
-        message was rejected (most often a re-uploaded attachment too large for this
-        channel); any rich embeds are still delivered on a files-less retry.
+        block the text already posted. Returns the number of *items* (files and/or
+        embeds) that couldn't be delivered — most often a re-uploaded attachment too
+        large for this channel. When a combined send is rejected, the embeds are
+        retried on their own (a file, not an embed, is the usual culprit); only if that
+        retry also fails are the embeds counted as dropped. Either way the exception is
+        swallowed, so a rejected trailing message can never abort the already-posted
+        unfurl or leave the invoker without a confirmation.
         """
-        if not files and not rich_embeds:
+        if not files and not embeds:
             return 0
 
         # Keep mentions suppressed here too. An embed can't ping on its own, but
@@ -203,18 +245,27 @@ class TfUrl(commands.Cog):
         # present rather than passing empty lists, since the typed API rejects ``None``.
         suppress = discord.AllowedMentions.none()
         try:
-            if files and rich_embeds:
+            if files and embeds:
                 await destination.send(
-                    files=files, embeds=rich_embeds, allowed_mentions=suppress
+                    files=files, embeds=embeds, allowed_mentions=suppress
                 )
             elif files:
                 await destination.send(files=files, allowed_mentions=suppress)
             else:
-                await destination.send(embeds=rich_embeds, allowed_mentions=suppress)
+                await destination.send(embeds=embeds, allowed_mentions=suppress)
         except discord.HTTPException as exc:
             log.info("tfurl: could not repost files, dropping them: %s", exc)
-            if rich_embeds:
-                await destination.send(embeds=rich_embeds, allowed_mentions=suppress)
+            if embeds:
+                try:
+                    await destination.send(embeds=embeds, allowed_mentions=suppress)
+                except discord.HTTPException as retry_exc:
+                    # Even the files-less retry was rejected; count the embeds as
+                    # dropped too rather than letting the error escape the command.
+                    log.info(
+                        "tfurl: could not repost embeds either, dropping them: %s",
+                        retry_exc,
+                    )
+                    return len(files) + len(embeds)
             return len(files)
         return 0
 

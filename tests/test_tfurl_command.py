@@ -82,7 +82,14 @@ class FakeChannel(discord.abc.Messageable):
     """
 
     def __init__(
-        self, channel_id, guild_id, *, can_view=True, message=None, reject_files=False
+        self,
+        channel_id,
+        guild_id,
+        *,
+        can_view=True,
+        message=None,
+        reject_files=False,
+        reject_embeds=False,
     ):
         self.id = channel_id
         self.guild = types.SimpleNamespace(id=guild_id)
@@ -91,7 +98,10 @@ class FakeChannel(discord.abc.Messageable):
         # When set, send() rejects any message carrying files, modelling an
         # attachment that exceeds this channel's upload limit.
         self._reject_files = reject_files
-        # One record per send(): .content/.files/.embeds/.allowed_mentions.
+        # When set, send() rejects any message carrying embeds, modelling an embed
+        # the channel won't accept even on the files-less retry.
+        self._reject_embeds = reject_embeds
+        # One record per send(): .content/.files/.embeds/.allowed_mentions/.suppress_embeds.
         self.sent = []
 
     def permissions_for(self, _user):
@@ -103,9 +113,17 @@ class FakeChannel(discord.abc.Messageable):
         return self._message
 
     async def send(
-        self, content=None, *, files=None, embeds=None, allowed_mentions=None
+        self,
+        content=None,
+        *,
+        files=None,
+        embeds=None,
+        allowed_mentions=None,
+        suppress_embeds=False,
     ):
         if self._reject_files and files:
+            raise _http_error()
+        if self._reject_embeds and embeds:
             raise _http_error()
         self.sent.append(
             types.SimpleNamespace(
@@ -113,6 +131,7 @@ class FakeChannel(discord.abc.Messageable):
                 files=files,
                 embeds=embeds,
                 allowed_mentions=allowed_mentions,
+                suppress_embeds=suppress_embeds,
             )
         )
 
@@ -163,14 +182,31 @@ def _link(guild_id, channel_id=SOURCE_CHANNEL, message_id=MESSAGE_ID):
     return f"https://discord.com/channels/{guild_id}/{channel_id}/{message_id}"
 
 
-def _make_message(content="", *, attachments=(), embeds=(), stickers=()):
-    """Build a fake source message with the fields /tfurl reads off it."""
+def _make_message(
+    content="",
+    *,
+    attachments=(),
+    embeds=(),
+    stickers=(),
+    bot=False,
+    webhook_id=None,
+    suppress_embeds=False,
+):
+    """Build a fake source message with the fields /tfurl reads off it.
+
+    ``bot``/``webhook_id`` model who authored the message: only a bot or webhook can
+    attach its own embeds, which is what /tfurl uses to decide whether to forward an
+    embed or let Discord regenerate it. ``suppress_embeds`` models a source message
+    whose own link previews were suppressed.
+    """
     return types.SimpleNamespace(
-        author=types.SimpleNamespace(id=AUTHOR_ID),
+        author=types.SimpleNamespace(id=AUTHOR_ID, bot=bot),
         content=content,
         attachments=list(attachments),
         embeds=list(embeds),
         stickers=list(stickers),
+        webhook_id=webhook_id,
+        flags=types.SimpleNamespace(suppress_embeds=suppress_embeds),
     )
 
 
@@ -294,10 +330,15 @@ def test_copied_mentions_are_suppressed(body):
 # --- Attachments and embeds -----------------------------------------------------
 
 
-def _visible_setup(message, *, reject_files=False):
+def _visible_setup(message, *, reject_files=False, reject_embeds=False):
     """Wire a visible same-guild source + destination for the media tests."""
     source = FakeChannel(SOURCE_CHANNEL, THIS_GUILD, message=message)
-    destination = FakeChannel(SOURCE_CHANNEL, THIS_GUILD, reject_files=reject_files)
+    destination = FakeChannel(
+        SOURCE_CHANNEL,
+        THIS_GUILD,
+        reject_files=reject_files,
+        reject_embeds=reject_embeds,
+    )
     bot = FakeBot()
     interaction = FakeInteraction(
         guild_id=THIS_GUILD,
@@ -338,38 +379,94 @@ def test_reupload_preserves_spoiler_flag():
     assert destination.sent[-1].files[0].spoiler is True
 
 
-def test_forwards_rich_embeds_but_not_auto_previews():
-    # Bot/webhook-authored ("rich") embeds are forwarded; Discord's own auto-generated
-    # link/image previews are not (Discord refuses to re-post them, and regenerates
-    # them from any URL left in the copied text).
-    rich = types.SimpleNamespace(type="rich")
-    auto = types.SimpleNamespace(type="image")
-    message = _make_message("see https://example.com", embeds=[rich, auto])
+def test_bot_message_forwards_its_embeds_and_suppresses_text():
+    # A bot's message carries application-authored cards Discord won't regenerate, so
+    # they're forwarded. Because a URL in the copied text would make Discord generate a
+    # second, duplicate preview, the text is sent with embeds suppressed.
+    card = types.SimpleNamespace(type="rich")
+    message = _make_message("see https://example.com", embeds=[card], bot=True)
     destination, bot, interaction = _visible_setup(message)
 
     _run_tfurl(bot, interaction, _link(THIS_GUILD))
 
-    assert destination.sent[-1].embeds == [rich]
+    text, media = destination.sent
+    assert text.suppress_embeds is True  # no duplicate auto preview on the text
+    assert media.embeds == [card]  # the bot's own card is forwarded once
 
 
-def test_auto_preview_alone_sends_no_media_message():
-    # If the only embed is an auto-generated preview, there's nothing to forward, so
-    # the command must not emit an empty trailing media message.
-    auto = types.SimpleNamespace(type="image")
-    message = _make_message("https://example.com", embeds=[auto])
+def test_webhook_message_embeds_are_forwarded():
+    # Webhook messages (no author.bot flag, but a webhook_id) are application content
+    # too, so their embeds forward just like a bot's.
+    card = types.SimpleNamespace(type="rich")
+    message = _make_message("news", embeds=[card], webhook_id=12345)
     destination, bot, interaction = _visible_setup(message)
 
     _run_tfurl(bot, interaction, _link(THIS_GUILD))
 
-    assert len(destination.sent) == 1  # just the text
+    assert destination.sent[-1].embeds == [card]
+
+
+def test_user_link_carries_no_embed_and_keeps_autopreview():
+    # A human's message can only carry Discord's own auto preview. We forward nothing
+    # and leave the text un-suppressed so Discord regenerates the preview from the URL
+    # — exactly once, with no duplicate.
+    auto = types.SimpleNamespace(type="image")
+    message = _make_message("see https://example.com", embeds=[auto])
+    destination, bot, interaction = _visible_setup(message)
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    assert len(destination.sent) == 1  # just the text; nothing forwarded
+    assert destination.sent[0].suppress_embeds is False  # Discord regenerates it
+
+
+def test_user_embed_typed_rich_is_still_not_carried():
+    # Discord types some auto previews "rich"; relying on that is what caused the
+    # duplicate-embed bug. Since the author is a human, the preview is still dropped
+    # (and left for Discord to regenerate), regardless of its reported type.
+    leaked_rich = types.SimpleNamespace(type="rich")
+    message = _make_message("see https://example.com", embeds=[leaked_rich])
+    destination, bot, interaction = _visible_setup(message)
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    assert len(destination.sent) == 1  # not forwarded despite type == "rich"
+    assert destination.sent[0].suppress_embeds is False
+
+
+def test_bot_plain_url_without_card_regenerates_preview():
+    # A bot that posts only a URL (its preview is Discord's own auto embed, not a card)
+    # has nothing of its own to forward, so we don't suppress — Discord regenerates the
+    # preview from the URL rather than losing it.
+    auto = types.SimpleNamespace(type="image")
+    message = _make_message("https://example.com", embeds=[auto], bot=True)
+    destination, bot, interaction = _visible_setup(message)
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    assert len(destination.sent) == 1  # nothing forwarded (auto preview isn't a card)
+    assert destination.sent[0].suppress_embeds is False
+
+
+def test_source_suppressed_preview_is_not_reintroduced():
+    # If the source author suppressed their own preview, reposting the URL must not
+    # bring it back: the copied text is sent with embeds suppressed.
+    message = _make_message("https://example.com", suppress_embeds=True)
+    destination, bot, interaction = _visible_setup(message)
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    assert len(destination.sent) == 1
+    assert destination.sent[0].suppress_embeds is True
 
 
 def test_oversize_attachment_is_reported_not_fatal():
     # A file too large to re-upload must not sink the whole unfurl: the text still
-    # posts, any rich embed is still delivered, and the invoker is told privately.
+    # posts, any forwarded embed is still delivered, and the invoker is told privately.
+    # The embed is carried here because the source is a bot (its card is ours to send).
     big = FakeAttachment("huge.zip")
-    rich = types.SimpleNamespace(type="rich")
-    message = _make_message("my files", attachments=[big], embeds=[rich])
+    card = types.SimpleNamespace(type="rich")
+    message = _make_message("my files", attachments=[big], embeds=[card], bot=True)
     destination, bot, interaction = _visible_setup(message, reject_files=True)
 
     _run_tfurl(bot, interaction, _link(THIS_GUILD))
@@ -378,9 +475,30 @@ def test_oversize_attachment_is_reported_not_fatal():
     contents = [record.content for record in destination.sent]
     assert any("my files" in (content or "") for content in contents)
     assert all(record.files is None for record in destination.sent)
-    # The rich embed still made it through on the files-less retry.
-    assert any(record.embeds == [rich] for record in destination.sent)
+    # The card still made it through on the files-less retry.
+    assert any(record.embeds == [card] for record in destination.sent)
     # And the shortfall is disclosed to the invoker, not silently swallowed.
+    assert "couldn't be reposted" in interaction.followup.messages[-1][0]
+
+
+def test_unsendable_embed_after_oversize_file_is_reported_not_fatal():
+    # If the files-less retry ALSO fails (the channel rejects the embed too), the
+    # command must not raise: it swallows the error, still confirms, and counts the
+    # embed among the dropped items.
+    big = FakeAttachment("huge.zip")
+    card = types.SimpleNamespace(type="rich")
+    message = _make_message("my files", attachments=[big], embeds=[card], bot=True)
+    destination, bot, interaction = _visible_setup(
+        message, reject_files=True, reject_embeds=True
+    )
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    # The text still posted, and nothing that survived carries the file or the embed.
+    assert any("my files" in (record.content or "") for record in destination.sent)
+    assert all(record.files is None for record in destination.sent)
+    assert all(record.embeds is None for record in destination.sent)
+    # The invoker is told, rather than the command aborting with an unhandled error.
     assert "couldn't be reposted" in interaction.followup.messages[-1][0]
 
 

@@ -164,6 +164,7 @@ async def splitsend(
     text: str,
     *,
     allowed_mentions: discord.AllowedMentions | None = None,
+    suppress_embeds: bool = False,
 ) -> None:
     """Send ``text`` to a Discord ``channel``, split into message-sized chunks.
 
@@ -171,6 +172,11 @@ async def splitsend(
     the pure, unit-tested :func:`chunk_message`. ``allowed_mentions`` is forwarded to
     every chunk so a caller can suppress pings (e.g. ``AllowedMentions.none()`` when
     reposting untrusted content); ``None`` leaves Discord's default behaviour intact.
+
+    ``suppress_embeds`` is forwarded to every chunk too: when ``True`` Discord will
+    not auto-generate link previews for any URLs in the text. Callers use this when
+    they reproduce the source's embeds themselves (or when the source had its own
+    previews suppressed), so a URL left in the copied text can't spawn a duplicate.
     """
     for chunk in chunk_message(text):
         if not chunk:
@@ -178,7 +184,12 @@ async def splitsend(
         # Only forward allowed_mentions when the caller set it: discord.py treats an
         # explicit None differently from "argument omitted", so omitting it preserves
         # the library's default behaviour for callers that don't care about mentions.
+        # suppress_embeds defaults to False in the same way, so it's always safe to pass.
         if allowed_mentions is None:
-            await channel.send(chunk)
+            await channel.send(chunk, suppress_embeds=suppress_embeds)
         else:
-            await channel.send(chunk, allowed_mentions=allowed_mentions)
+            await channel.send(
+                chunk,
+                allowed_mentions=allowed_mentions,
+                suppress_embeds=suppress_embeds,
+            )
