@@ -73,6 +73,31 @@ class FakeSticker:
         return b"sticker-bytes"
 
 
+class FakeSnapshot:
+    """Stand-in for discord.MessageSnapshot — the forwarded content of a forward.
+
+    A snapshot exposes the same .content/.embeds/.attachments/.stickers/.flags the
+    command reads, but (like a real snapshot) no author: Discord excludes ``author``
+    from snapshots, which is why /tfurl attributes a forward to its forwarder rather
+    than to the (unrecoverable) original author.
+    """
+
+    def __init__(
+        self,
+        content="",
+        *,
+        attachments=(),
+        embeds=(),
+        stickers=(),
+        suppress_embeds=False,
+    ):
+        self.content = content
+        self.attachments = list(attachments)
+        self.embeds = list(embeds)
+        self.stickers = list(stickers)
+        self.flags = types.SimpleNamespace(suppress_embeds=suppress_embeds)
+
+
 class FakeChannel(discord.abc.Messageable):
     """A messageable channel/thread in some guild, with controllable permissions.
 
@@ -191,13 +216,16 @@ def _make_message(
     bot=False,
     webhook_id=None,
     suppress_embeds=False,
+    snapshots=(),
 ):
     """Build a fake source message with the fields /tfurl reads off it.
 
     ``bot``/``webhook_id`` model who authored the message: only a bot or webhook can
     attach its own embeds, which is what /tfurl uses to decide whether to forward an
     embed or let Discord regenerate it. ``suppress_embeds`` models a source message
-    whose own link previews were suppressed.
+    whose own link previews were suppressed. ``snapshots`` models a Discord native
+    forward: when non-empty, the forwarded content lives there (not in the outer
+    content/attachments/embeds), and /tfurl reproduces it attributed to the forwarder.
     """
     return types.SimpleNamespace(
         author=types.SimpleNamespace(id=AUTHOR_ID, bot=bot),
@@ -206,7 +234,11 @@ def _make_message(
         embeds=list(embeds),
         stickers=list(stickers),
         webhook_id=webhook_id,
-        flags=types.SimpleNamespace(suppress_embeds=suppress_embeds),
+        flags=types.SimpleNamespace(
+            suppress_embeds=suppress_embeds,
+            forwarded=bool(snapshots),
+        ),
+        message_snapshots=list(snapshots),
     )
 
 
@@ -580,3 +612,118 @@ def test_image_and_lottie_stickers_together():
     assert "[sticker: Wave]" in text.content
     # APNG re-uploads with a .png extension.
     assert [file.filename for file in media.files] == ["catjam.png"]
+
+
+# --- Forwards (message snapshots) -----------------------------------------------
+
+
+def test_forward_from_another_server_is_unfurled_from_snapshot():
+    # The headline fix: a message in *this* server that is itself a native forward of a
+    # message from elsewhere. The forwarded content lives in message_snapshots, not the
+    # outer content (which is just the forwarder's empty comment), so it must be
+    # reproduced from the snapshot — not silently dropped as an empty body.
+    snapshot = FakeSnapshot("hello from afar")
+    message = _make_message(snapshots=[snapshot])
+    destination, bot, interaction = _visible_setup(message)
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    # The snapshot text made it into the repost, attributed to the forwarder.
+    assert len(destination.sent) == 1
+    record = destination.sent[0]
+    assert f"<@{AUTHOR_ID}>" in record.content
+    assert "hello from afar" in record.content
+
+
+def test_forward_includes_forwarder_comment():
+    # The forwarder's own comment (outer content) is part of the message, so it's kept
+    # above the snapshot text in the repost.
+    snapshot = FakeSnapshot("the original text")
+    message = _make_message("my two cents", snapshots=[snapshot])
+    destination, bot, interaction = _visible_setup(message)
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    body = destination.sent[0].content
+    assert "my two cents" in body
+    assert "the original text" in body
+    # The comment precedes the forwarded text.
+    assert body.index("my two cents") < body.index("the original text")
+
+
+def test_forward_attachment_is_reuploaded():
+    # An attachment on the snapshot is re-uploaded beneath the text, just like a normal
+    # message's attachment — the snapshot's attachments are real Attachment objects.
+    attachment = FakeAttachment("forwarded.png")
+    snapshot = FakeSnapshot("see this", attachments=[attachment])
+    message = _make_message(snapshots=[snapshot])
+    destination, bot, interaction = _visible_setup(message)
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    assert len(destination.sent) == 2
+    text, media = destination.sent
+    assert "see this" in text.content
+    assert media.files is not None and len(media.files) == 1
+    assert media.files[0].filename == "forwarded.png"
+    assert interaction.followup.messages[-1][0] == "Done — unfurled below."
+
+
+def test_forward_embed_is_carried_and_text_suppressed():
+    # A snapshot's embeds are carried wholesale (the snapshot is a faithful copy whose
+    # original author — and thus whether its embeds are cards or auto previews — is
+    # unknown), and the copied text is sent with previews suppressed so a URL in it
+    # can't duplicate a carried embed.
+    card = types.SimpleNamespace(type="rich")
+    snapshot = FakeSnapshot("see https://example.com", embeds=[card])
+    message = _make_message(snapshots=[snapshot])
+    destination, bot, interaction = _visible_setup(message)
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    text, media = destination.sent
+    assert text.suppress_embeds is True  # no duplicate auto preview on the text
+    assert media.embeds == [card]  # the snapshot's embed is forwarded once
+
+
+def test_forward_lottie_sticker_is_text_marker():
+    # A Lottie sticker on the snapshot can't be re-rendered as an image, so it appears as
+    # a text marker in the repost — the snapshot's stickers flow through the same path
+    # as a normal message's.
+    sticker = FakeSticker("Wave", discord.StickerFormatType.lottie)
+    snapshot = FakeSnapshot(stickers=[sticker])
+    message = _make_message(snapshots=[snapshot])
+    destination, bot, interaction = _visible_setup(message)
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    assert len(destination.sent) == 1  # text only; nothing re-uploaded
+    assert "[sticker: Wave]" in destination.sent[0].content
+
+
+def test_forward_suppress_embeds_flag_is_honored():
+    # If the snapshot itself had previews suppressed, the reposted text is sent
+    # suppressed too — even when there's no carried embed to force it.
+    snapshot = FakeSnapshot("https://example.com", suppress_embeds=True)
+    message = _make_message(snapshots=[snapshot])
+    destination, bot, interaction = _visible_setup(message)
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    assert destination.sent[0].suppress_embeds is True
+
+
+def test_forward_copied_mentions_are_suppressed():
+    # The mention-safety guarantee holds for forwards too: whatever the snapshot text
+    # contains, the repost goes out with all mentions suppressed.
+    snapshot = FakeSnapshot("@everyone get in here")
+    message = _make_message(snapshots=[snapshot])
+    destination, bot, interaction = _visible_setup(message)
+
+    _run_tfurl(bot, interaction, _link(THIS_GUILD))
+
+    allowed = destination.sent[0].allowed_mentions
+    assert isinstance(allowed, discord.AllowedMentions)
+    assert allowed.everyone is False
+    assert allowed.roles is False
+    assert allowed.users is False

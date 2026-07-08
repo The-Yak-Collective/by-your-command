@@ -1,11 +1,18 @@
 """/tfurl — "unfurl" a Discord message link by reposting its content in-channel.
 
 Given a link to a message, the bot fetches that message and reposts it in the current
-channel, attributed to the original author and source channel. The text, any uploaded
+channel, attributed to its original author and source channel. The text, any uploaded
 attachments (re-uploaded so they render permanently), any bot/webhook-authored embeds,
 and any stickers are all carried across — image stickers re-uploaded, and Discord's
 non-image (Lottie) stickers named in text. This is a rewrite of the legacy slashayak
 ``tfurl`` command, which copied only the text.
+
+A message created with Discord's native Forward feature is reproduced from its
+``message_snapshots``: the forwarded content lives there, not in the outer
+``content``/``attachments``/``embeds`` (which hold only the forwarder's optional
+comment). The snapshot is an immutable, faithful copy whose original author Discord
+deliberately excludes, so the repost is attributed to the *forwarder* — the member who
+brought it into this server — exactly like any other unfurl.
 
 Reproducing embeds exactly once takes care: Discord auto-generates a fresh link
 preview for any URL left in the copied text, so we must never *also* re-post an embed
@@ -97,42 +104,80 @@ class TfUrl(commands.Cog):
             )
             return
 
-        # Only a bot or webhook can author its own embeds; a human's message can only
-        # carry Discord's auto-generated link previews. This is what decides whether an
-        # embed is ours to forward or Discord's to regenerate — a far more reliable
-        # signal than embed.type, which Discord marks deprecated and sets to "rich" for
-        # some auto previews too (the source of the duplicate-embed bug this fixes).
-        from_app = message.webhook_id is not None or bool(
-            getattr(message.author, "bot", False)
-        )
+        # A Discord "forward" (native Forward feature) stores the forwarded content in
+        # message_snapshots, not in the outer content/attachments/embeds: those outer
+        # fields hold only the forwarder's optional comment. So a forward must be
+        # reproduced from its snapshots, or the unfurl posts an empty body and silently
+        # drops the forwarded content. discord.py parses message_snapshots (a list of
+        # MessageSnapshot, each with .content/.embeds/.attachments/.stickers/.flags)
+        # straight from fetch_message's response.
+        snapshots = message.message_snapshots or []
+        if snapshots:
+            (
+                files,
+                carried_embeds,
+                sticker_notes,
+                dropped,
+            ) = await self._collect_forwarded_media(snapshots)
+            # Attribute to the forwarder (message.author) exactly like a normal unfurl.
+            # Discord excludes the original author from snapshots (anti-spoofing), and
+            # the forward's message_reference may point cross-guild (refused by design),
+            # so the original author isn't recoverable; a forward's own embeds give it a
+            # distinct appearance without a separate text label.
+            body = f"<@{message.author.id}> in <#{channel_id}>:\n"
+            if message.content:
+                body += f"{message.content}\n"
+            snap_texts = [snap.content for snap in snapshots if snap.content]
+            if snap_texts:
+                body += "\n".join(snap_texts)
+            if sticker_notes:
+                body += "\n" + " ".join(f"[sticker: {name}]" for name in sticker_notes)
+            # Carry the snapshots' own embeds and suppress auto previews on the copied
+            # text so a URL in it can't spawn a duplicate. A snapshot is an immutable,
+            # faithful copy whose original author (and thus bot-ness) is unknown, so we
+            # reproduce it as Discord rendered it rather than drop-and-regenerate (which
+            # would lose any application-authored card the original carried).
+            suppress_text = bool(carried_embeds) or any(
+                bool(getattr(snap.flags, "suppress_embeds", False))
+                for snap in snapshots
+            )
+        else:
+            # Only a bot or webhook can author its own embeds; a human's message can only
+            # carry Discord's auto-generated link previews. This is what decides whether
+            # an embed is ours to forward or Discord's to regenerate — a far more reliable
+            # signal than embed.type, which Discord marks deprecated and sets to "rich" for
+            # some auto previews too (the source of the duplicate-embed bug this fixes).
+            from_app = message.webhook_id is not None or bool(
+                getattr(message.author, "bot", False)
+            )
 
-        # message.content is *only* the text the author typed; uploaded files, embed
-        # cards, and stickers hang off separate fields. Gather everything we mean to
-        # repost — downloading attachments and image stickers — before posting
-        # anything, so the text can name any sticker we can't re-render as an image.
-        files, carried_embeds, sticker_notes, dropped = await self._collect_media(
-            message, from_app
-        )
+            # message.content is *only* the text the author typed; uploaded files, embed
+            # cards, and stickers hang off separate fields. Gather everything we mean to
+            # repost — downloading attachments and image stickers — before posting
+            # anything, so the text can name any sticker we can't re-render as an image.
+            files, carried_embeds, sticker_notes, dropped = await self._collect_media(
+                message, from_app
+            )
 
-        # Attribute the repost to its author and source channel. Stickers we can't
-        # reproduce as an image (Discord's standard, Lottie ones) are shown as a text
-        # marker so the channel still sees that a sticker was sent.
-        body = f"<@{message.author.id}> in <#{channel_id}>:\n{message.content}"
-        if sticker_notes:
-            body += "\n" + " ".join(f"[sticker: {name}]" for name in sticker_notes)
+            # Attribute the repost to its author and source channel. Stickers we can't
+            # reproduce as an image (Discord's standard, Lottie ones) are shown as a text
+            # marker so the channel still sees that a sticker was sent.
+            body = f"<@{message.author.id}> in <#{channel_id}>:\n{message.content}"
+            if sticker_notes:
+                body += "\n" + " ".join(f"[sticker: {name}]" for name in sticker_notes)
 
-        # Suppress Discord's auto previews on the copied text when we're forwarding the
-        # source's own embed cards (so a URL in the text can't spawn a second copy of
-        # one), and also when the source itself had its previews suppressed (so we don't
-        # re-introduce a preview the author deliberately removed). Otherwise leave them
-        # on: that's how a plain link's preview is reproduced — Discord regenerates it
-        # from the URL for free, at full fidelity.
-        suppress_text = bool(message.flags.suppress_embeds) or bool(carried_embeds)
+            # Suppress Discord's auto previews on the copied text when we're forwarding
+            # the source's own embed cards (so a URL in the text can't spawn a second copy
+            # of one), and also when the source itself had its previews suppressed (so we
+            # don't re-introduce a preview the author deliberately removed). Otherwise
+            # leave them on: that's how a plain link's preview is reproduced — Discord
+            # regenerates it from the URL for free, at full fidelity.
+            suppress_text = bool(message.flags.suppress_embeds) or bool(carried_embeds)
 
-        # Post the text first: it anchors the unfurl and, unlike re-uploaded files,
-        # can never fail on a size limit. Every send uses AllowedMentions.none(), so
-        # the <@id>/<#id> attribution and any mentions copied from the body render as
-        # text but notify nobody — a linked message can't make the bot ping people.
+        # Post the text first: it anchors the unfurl and, unlike re-uploaded files, can
+        # never fail on a size limit. Every send uses AllowedMentions.none(), so the
+        # <@id>/<#id> attribution and any mentions copied from the body render as text
+        # but notify nobody — a linked message can't make the bot ping people.
         await splitsend(
             destination,
             body,
@@ -197,6 +242,59 @@ class TfUrl(commands.Cog):
             if from_app
             else []
         )
+        return files, carried_embeds, sticker_notes, dropped
+
+    async def _collect_forwarded_media(
+        self, snapshots: list[discord.MessageSnapshot]
+    ) -> tuple[list[discord.File], list[discord.Embed], list[str], int]:
+        """Gather everything to repost from a forwarded message's snapshots.
+
+        A Discord forward keeps the forwarded content in ``message_snapshots``; the
+        outer message carries only the forwarder's optional comment (reproduced as text
+        by the caller). From each snapshot we collect its attachments (re-uploaded so
+        they render permanently, spoiler flag preserved), its stickers (image stickers
+        re-uploaded; Discord's standard Lottie ones returned as names for a text
+        marker), and its embeds — carried wholesale. Returns the same
+        ``(files, carried_embeds, sticker_notes, dropped)`` shape as
+        :meth:`_collect_media` so the posting path is shared.
+
+        Unlike a normal message, a snapshot's embeds are carried *without* filtering to
+        ``type == "rich"``: the snapshot is an immutable, faithful copy whose original
+        author — and therefore whether its embeds are application cards or auto
+        previews — is unknown (Discord excludes ``author`` from snapshots), so we
+        reproduce it exactly as Discord rendered the forward. The caller suppresses
+        auto previews on the reposted text so a URL in it can't duplicate a carried
+        embed.
+        """
+        files: list[discord.File] = []
+        carried_embeds: list[discord.Embed] = []
+        sticker_notes: list[str] = []
+        dropped = 0
+
+        for snapshot in snapshots:
+            for attachment in snapshot.attachments:
+                try:
+                    # to_file() strips the spoiler flag by default, so set it explicitly.
+                    files.append(
+                        await attachment.to_file(spoiler=attachment.is_spoiler())
+                    )
+                except discord.HTTPException as exc:
+                    log.info(
+                        "tfurl: could not fetch forwarded attachment %r: %s",
+                        attachment.filename,
+                        exc,
+                    )
+                    dropped += 1
+
+            for sticker in snapshot.stickers:
+                sticker_file = await self._sticker_to_file(sticker)
+                if sticker_file is None:
+                    sticker_notes.append(sticker.name)
+                else:
+                    files.append(sticker_file)
+
+            carried_embeds.extend(snapshot.embeds)
+
         return files, carried_embeds, sticker_notes, dropped
 
     async def _sticker_to_file(
