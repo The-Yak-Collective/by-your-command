@@ -628,9 +628,11 @@ def test_forward_from_another_server_is_unfurled_from_snapshot():
 
     _run_tfurl(bot, interaction, _link(THIS_GUILD))
 
-    # The snapshot text made it into the repost, attributed to the forwarder.
+    # The snapshot text made it into the repost, attributed to the forwarder under the
+    # distinct forward prefix (not the normal "<author> in <channel>" header).
     assert len(destination.sent) == 1
     record = destination.sent[0]
+    assert record.content.startswith("↱ Forward (")
     assert f"<@{AUTHOR_ID}>" in record.content
     assert "hello from afar" in record.content
 
@@ -645,6 +647,7 @@ def test_forward_includes_forwarder_comment():
     _run_tfurl(bot, interaction, _link(THIS_GUILD))
 
     body = destination.sent[0].content
+    assert body.startswith("↱ Forward (")
     assert "my two cents" in body
     assert "the original text" in body
     # The comment precedes the forwarded text.

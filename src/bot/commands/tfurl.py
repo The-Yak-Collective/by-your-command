@@ -11,8 +11,10 @@ A message created with Discord's native Forward feature is reproduced from its
 ``message_snapshots``: the forwarded content lives there, not in the outer
 ``content``/``attachments``/``embeds`` (which hold only the forwarder's optional
 comment). The snapshot is an immutable, faithful copy whose original author Discord
-deliberately excludes, so the repost is attributed to the *forwarder* — the member who
-brought it into this server — exactly like any other unfurl.
+deliberately excludes (and whose cross-guild source the bot refuses to resolve), so
+the repost is attributed to the *forwarder* under a distinct ``↱ Forward`` prefix
+rather than the usual ``<author> in <channel>`` header — making the forwarded
+provenance visible without the unrecoverable original author.
 
 Reproducing embeds exactly once takes care: Discord auto-generates a fresh link
 preview for any URL left in the copied text, so we must never *also* re-post an embed
@@ -119,12 +121,13 @@ class TfUrl(commands.Cog):
                 sticker_notes,
                 dropped,
             ) = await self._collect_forwarded_media(snapshots)
-            # Attribute to the forwarder (message.author) exactly like a normal unfurl.
+            # Attribute to the forwarder (message.author) under a distinct "↱ Forward"
+            # prefix so the repost is visibly a forward, not the forwarder's own words.
             # Discord excludes the original author from snapshots (anti-spoofing), and
             # the forward's message_reference may point cross-guild (refused by design),
-            # so the original author isn't recoverable; a forward's own embeds give it a
-            # distinct appearance without a separate text label.
-            body = f"<@{message.author.id}> in <#{channel_id}>:\n"
+            # so the original author isn't recoverable; the prefix makes the forwarded
+            # provenance clear without it.
+            body = f"↱ Forward (<@{message.author.id}> in <#{channel_id}>):\n"
             if message.content:
                 body += f"{message.content}\n"
             snap_texts = [snap.content for snap in snapshots if snap.content]
