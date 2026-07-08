@@ -6,8 +6,11 @@ A small, modular Discord bot that (currently) provides two slash commands:
   current channel, attributed to its author and source channel. The text, any uploaded
   attachments (re-uploaded so they keep rendering), any rich (bot/webhook) embeds, and
   any stickers are all carried across.
-- **`/showmymode`** — toggle a "listen mode" marker emoji (default 🙊) on your server
-  nickname. The marker auto-removes after a timeout (default 90 minutes).
+- **`/chmod`** — toggle a "listen mode" marker emoji (default 🙊) on your server
+  nickname. The marker auto-removes after a timeout (default 90 minutes). Omit the
+  `enable` option to swap your current state on/off.
+  (`/showmymode` is the deprecated old name for this command; it still works but nudges
+  you toward `/chmod`.)
 
 The codebase is built so that **adding a new slash command is as simple as
 copying one file**.
@@ -27,17 +30,17 @@ copying one file**.
    - **Reset Token** and copy it — this is your `DISCORD_BOT_TOKEN`.
    - Under **Privileged Gateway Intents**, enable both:
      - **Message Content Intent** (required by `/tfurl`).
-     - **Server Members Intent** (required by `/showmymode`).
+     - **Server Members Intent** (required by `/chmod`).
 3. Invite the bot to your server (**OAuth2 → URL Generator**):
    - Scopes: `bot` and `applications.commands`.
    - Bot permissions: **View Channels**, **Send Messages**, **Read Message History**
      (so `/tfurl` can fetch linked messages), and **Manage Nicknames** (so
-     `/showmymode` can edit nicknames).
+     `/chmod` can edit nicknames).
    - Open the generated URL and add the bot to your server.
 
 > **Nickname caveat:** Discord never lets *anyone* change the **server owner's**
 > nickname, and a bot can only edit nicknames of members whose highest role is
-> *below* the bot's highest role. If `/showmymode` reports it couldn't change your
+> *below* the bot's highest role. If `/chmod` reports it couldn't change your
 > nickname, that role ordering (or a missing permission) is almost always why.
 
 ## Configuration
@@ -108,8 +111,8 @@ ${XDG_STATE_HOME:-$HOME/.local/state}/by-your-command/
 ├── logs/
 │   ├── bot.log             # bot stdout/stderr
 │   └── update.log          # nightly refresh log
-└── showmymode/
-    └── modes.json          # /showmymode listen-mode state
+└── chmod/
+    └── modes.json          # /chmod listen-mode state
 ```
 
 ## Project layout
@@ -129,8 +132,9 @@ ${XDG_STATE_HOME:-$HOME/.local/state}/by-your-command/
 │   ├── maintenance.py      # registry for startup/periodic background actions
 │   ├── utils.py            # small, unit-tested helpers
 │   └── commands/           # ← one file per slash command (auto-discovered)
-│       ├── tfurl.py
-│       └── showmymode.py
+│       ├── chmod.py        # /chmod + the shared listen-mode core
+│       ├── showmymode.py   # deprecated /showmymode shim over chmod's core
+│       └── tfurl.py
 └── tests/                  # unit tests for the pure helpers
 ```
 
@@ -158,7 +162,7 @@ async def setup(bot):
 ```
 
 Each action is an `async` function taking the bot. Use `state.JSONStore("mycommand")`
-for any state it needs to persist. This is exactly how `/showmymode` implements its
+for any state it needs to persist. This is exactly how `/chmod` implements its
 auto-expiring marker.
 
 ## Design decisions
@@ -169,7 +173,7 @@ auto-expiring marker.
 - **One file per command, auto-discovered.** Commands are discord.py *cogs* loaded
   via `pkgutil.iter_modules` + `load_extension`, so the core never hardcodes a
   command list. This was the biggest gap in the legacy code (one 289-line file).
-- **`/showmymode`'s timeout is real and survives restarts.** The legacy `timer`
+- **`/chmod`'s timeout is real and survives restarts.** The legacy `timer`
   parameter was never implemented. Here the expiry is backed by a JSON state file and
   enforced by an in-process sweep (every 15 minutes), so the nightly restart can't
   lose track of pending removals. On the very first run (no state file yet), a

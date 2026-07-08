@@ -28,7 +28,7 @@ def _build_intents() -> discord.Intents:
     or the bot will fail to log in.
     """
     intents = discord.Intents.default()
-    # /showmymode: read & edit member nicknames, and fetch the member list for the
+    # /chmod: read & edit member nicknames, and fetch the member list for the
     # first-boot scan.
     intents.members = True
     # /tfurl: read the text content of the message being unfurled.
@@ -94,7 +94,7 @@ class ByYourCommandBot(commands.Bot):
         """Run one-shot startup work after the gateway is ready.
 
         ``before_loop`` fires exactly once, before the first iteration, so it is the
-        natural home for one-time startup actions (such as the /showmymode
+        natural home for one-time startup actions (such as the /chmod
         first-boot scan) and is not re-triggered by gateway reconnects.
         """
         await self.wait_until_ready()

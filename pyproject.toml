@@ -7,7 +7,7 @@
 [project]
 name = "by-your-command"
 version = "0.1.0"
-description = "A small, modular Discord bot providing the /tfurl and /showmymode slash commands."
+description = "A small, modular Discord bot providing the /tfurl and /chmod slash commands."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }

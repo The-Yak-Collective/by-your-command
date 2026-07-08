@@ -56,7 +56,7 @@ class JSONStore:
     """Reads and writes JSON files within one command's private state directory."""
 
     def __init__(self, command_name: str) -> None:
-        # e.g. ${XDG_STATE_HOME}/by-your-command/showmymode/
+        # e.g. ${XDG_STATE_HOME}/by-your-command/chmod/
         self.dir: Path = base_dir() / _require_simple_name(command_name)
 
     def _path(self, filename: str) -> Path:
