@@ -86,7 +86,7 @@ def test_showmymode_on_marks_nick_and_sends_deprecation(isolated_store):
     assert interaction.response.messages
     _result, result_eph = interaction.response.messages[-1]
     assert result_eph is True
-    assert "listen mode" in _result.lower()
+    assert _result == "You're in 🙊 mode for the next 90 minutes."
     # ...and the deprecation went out as a separate ephemeral followup.
     assert interaction.followup.messages
     msg, followup_eph = interaction.followup.messages[-1]
@@ -107,7 +107,7 @@ def test_showmymode_off_restores_nick_and_sends_deprecation(isolated_store):
     asyncio.run(showmymode._run_showmymode(interaction, member, _choice(2), "🙊", None))
 
     assert member.nick == "Bob"  # restored
-    assert interaction.response.messages[-1][0] == "Listen mode off."
+    assert interaction.response.messages[-1][0] == "🙊 mode off."
     # The deprecation nudge is sent on the off path too.
     assert interaction.followup.messages
     assert "/chmod" in interaction.followup.messages[-1][0]

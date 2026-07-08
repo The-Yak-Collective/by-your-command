@@ -1,10 +1,10 @@
-"""/chmod — toggle a "listen mode" marker emoji on your nickname.
+"""/chmod — toggle a mode marker emoji on your nickname.
 
 Turning the mode on prepends a marker (default 🙊) to your server nickname so others
-can see you're in listen-only mode; it auto-removes after a timeout (default 90
-minutes). This is a rewrite of the legacy slashayak ``showmymode`` command with the
-timeout *actually implemented*, backed by persistent state so it survives the bot's
-nightly restart.
+can see your current mode; it auto-removes after a timeout (default 90 minutes). This
+is a rewrite of the legacy slashayak ``showmymode`` command with the timeout
+*actually implemented*, backed by persistent state so it survives the bot's nightly
+restart.
 
 This module is the shared core for the feature: it owns the persistent state model,
 the on/off/swap logic, and the maintenance sweep, and it registers the primary
@@ -81,7 +81,7 @@ def _normalize_state(raw: object) -> dict[str, Any]:
     """
     state = _empty_state()
     if not isinstance(raw, dict):
-        log.warning("listen-mode state is not an object; using empty state")
+        log.warning("mode state is not an object; using empty state")
         return state
     users = raw.get("users")
     if not isinstance(users, dict):
@@ -106,7 +106,7 @@ def _normalize_state(raw: object) -> dict[str, Any]:
                     clean["original_nick"] = nick
             state["users"][str(user_id)] = clean
         else:
-            log.warning("dropping malformed listen-mode record for %r", user_id)
+            log.warning("dropping malformed mode record for %r", user_id)
     return state
 
 
@@ -192,7 +192,7 @@ async def _turn_on(
     }
     _save_state(state)
     await interaction.response.send_message(
-        f"You're in listen mode for {duration} minutes. {char}", ephemeral=True
+        f"You're in {char} mode for the next {duration} minutes.", ephemeral=True
     )
 
 
@@ -214,7 +214,7 @@ async def _turn_off(interaction: discord.Interaction, member: discord.Member) ->
     if record is not None:
         del state["users"][str(member.id)]
         _save_state(state)
-    await interaction.response.send_message("Listen mode off.", ephemeral=True)
+    await interaction.response.send_message(f"{char} mode off.", ephemeral=True)
 
 
 async def _swap(
@@ -268,7 +268,7 @@ class Chmod(commands.Cog):
 
     @app_commands.command(
         name="chmod",
-        description="Toggle a 🙊 marker on your nickname to show you're in listen mode.",
+        description="Toggle a marker (default 🙊) on your nickname to show your current mode.",
     )
     @app_commands.describe(
         enable="Turn the marker on (true) or off (false); omit to swap the current state.",
@@ -360,7 +360,7 @@ async def _sweep_expired(bot) -> None:
 
     if expired:
         _save_state(state)
-        log.info("swept %d expired listen-mode marker(s)", len(expired))
+        log.info("swept %d expired mode marker(s)", len(expired))
 
 
 async def setup(bot: commands.Bot) -> None:

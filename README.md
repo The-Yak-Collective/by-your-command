@@ -6,7 +6,7 @@ A small, modular Discord bot that (currently) provides two slash commands:
   current channel, attributed to its author and source channel. The text, any uploaded
   attachments (re-uploaded so they keep rendering), any rich (bot/webhook) embeds, and
   any stickers are all carried across.
-- **`/chmod`** — toggle a "listen mode" marker emoji (default 🙊) on your server
+- **`/chmod`** — toggle a mode marker emoji (default 🙊) on your server
   nickname. The marker auto-removes after a timeout (default 90 minutes). Omit the
   `enable` option to swap your current state on/off.
   (`/showmymode` is the deprecated old name for this command; it still works but nudges
@@ -112,7 +112,7 @@ ${XDG_STATE_HOME:-$HOME/.local/state}/by-your-command/
 │   ├── bot.log             # bot stdout/stderr
 │   └── update.log          # nightly refresh log
 └── chmod/
-    └── modes.json          # /chmod listen-mode state
+    └── modes.json          # /chmod mode state
 ```
 
 ## Project layout
@@ -132,7 +132,7 @@ ${XDG_STATE_HOME:-$HOME/.local/state}/by-your-command/
 │   ├── maintenance.py      # registry for startup/periodic background actions
 │   ├── utils.py            # small, unit-tested helpers
 │   └── commands/           # ← one file per slash command (auto-discovered)
-│       ├── chmod.py        # /chmod + the shared listen-mode core
+│       ├── chmod.py        # /chmod + the shared mode-marker core
 │       ├── showmymode.py   # deprecated /showmymode shim over chmod's core
 │       └── tfurl.py
 └── tests/                  # unit tests for the pure helpers

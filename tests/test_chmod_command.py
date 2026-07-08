@@ -151,6 +151,22 @@ def test_turn_on_accepts_duration_at_tick(isolated_store, monkeypatch):
     assert "48" in chmod._load_state()["users"]
 
 
+def test_messages_reflect_the_selected_character(isolated_store):
+    # The on/off responses name the chosen character, so a custom marker reads as
+    # e.g. "🎄 mode" rather than a generic label.
+    member = FakeMember(49, nick=None, username="Tree")
+    on_interaction = _interaction()
+    asyncio.run(chmod._turn_on(on_interaction, member, "🎄", None))
+    assert (
+        on_interaction.response.messages[-1][0]
+        == "You're in 🎄 mode for the next 90 minutes."
+    )
+
+    off_interaction = _interaction()
+    asyncio.run(chmod._turn_off(off_interaction, member))
+    assert off_interaction.response.messages[-1][0] == "🎄 mode off."
+
+
 # --- routing (the shared apply() entry point) -------------------------
 
 

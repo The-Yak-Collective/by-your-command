@@ -55,7 +55,7 @@ class ShowMyMode(commands.Cog):
 
     @app_commands.command(
         name="showmymode",
-        description="[deprecated] Toggle a 🙊 listen-mode marker on your nickname.",
+        description="[deprecated] Toggle a marker (default 🙊) on your nickname to show your current mode.",
     )
     @app_commands.describe(
         onoff="Turn the marker on or off.",
