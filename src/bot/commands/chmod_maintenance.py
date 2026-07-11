@@ -219,3 +219,7 @@ async def _sweep_expired(bot) -> None:
     if swept:
         _save_state(state)
         log.info("swept %d expired mode marker(s)", swept)
+
+
+async def setup(bot) -> None:
+    """No-op: all functionality is registered by chmod.setup()."""
