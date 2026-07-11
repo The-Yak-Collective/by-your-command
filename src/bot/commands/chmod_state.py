@@ -191,3 +191,7 @@ def _drop_user(state: dict[str, Any], guild_id: int, user_id: str) -> None:
     users.pop(user_id, None)
     if not users:
         state["guilds"].pop(str(guild_id), None)
+
+
+async def setup(bot) -> None:
+    """No-op: all functionality is imported by chmod.py and chmod_maintenance.py."""
