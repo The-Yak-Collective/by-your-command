@@ -56,7 +56,7 @@ $EDITOR .env
 | Variable             | Required | Description                                                                 |
 | -------------------- | -------- | --------------------------------------------------------------------------- |
 | `DISCORD_BOT_TOKEN`  | yes      | The bot token from the Developer Portal.                                     |
-| `DISCORD_GUILD_ID`   | no       | A server ID. If set, commands sync instantly to that one server; otherwise they sync globally (can take ~1h). |
+| `DISCORD_GUILD_ID`   | no       | A server ID. When set, commands sync instantly to that one server — handy for dev iteration or single-guild deploys. Leave blank to sync globally (~1h), which is required for multi-guild deployments. |
 
 ## Install and run
 
