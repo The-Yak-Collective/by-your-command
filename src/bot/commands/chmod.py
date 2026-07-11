@@ -179,6 +179,7 @@ class Chmod(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot: commands.Bot = bot
 
+    @app_commands.checks.cooldown(3, 60.0)
     @app_commands.command(
         name="chmod",
         description="Toggle a marker (default 🙊) on your nickname to show your current mode.",
@@ -207,6 +208,6 @@ class Chmod(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    maintenance.register_startup(f"{STATE_NAMESPACE}-scan", _scan_on_first_boot)
+    maintenance.register_periodic(f"{STATE_NAMESPACE}-scan", _scan_on_first_boot)
     maintenance.register_periodic(f"{STATE_NAMESPACE}-sweep", _sweep_expired)
     await bot.add_cog(Chmod(bot))

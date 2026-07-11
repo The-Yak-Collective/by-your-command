@@ -66,6 +66,7 @@ class TfUrl(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot: commands.Bot = bot
 
+    @app_commands.checks.cooldown(3, 60.0)
     @app_commands.command(
         name="tfurl",
         description="Unfurl a Discord message link by reposting its content here.",

@@ -9,6 +9,7 @@ never from chmod itself.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import Any
 
@@ -19,7 +20,6 @@ from .chmod_state import (
     DEFAULT_CHAR,
     DEFAULT_DURATION_MINUTES,
     STATE_FILE,
-    _empty_state,
     _ensure_guild_users,
     _load_state,
     _save_state,
@@ -27,6 +27,20 @@ from .chmod_state import (
 )
 
 log = logging.getLogger(__name__)
+
+# How many members to fetch per guild per maintenance tick during the first-boot
+# scan. The Discord REST API returns up to 1000 members per request, and the
+# one-minute tick cadence provides a natural cool-down between batches. 1000 per
+# guild per minute keeps the scan fast on small servers while staying well under
+# rate limits on large ones. A guild with 50 000 members scans in ~50 ticks (~50
+# minutes), and the progress file makes that fully resumable across restarts.
+SCAN_BATCH_SIZE = 1000
+
+# Progress file written alongside the main state file while the scan is in flight.
+# Its presence means the scan was interrupted and should resume; its absence in the
+# presence of a state file means the scan completed. Stored under the same
+# directory as modes.json so atomic-write semantics and quarantining apply.
+SCAN_PROGRESS_FILE = "scan_progress.json"
 
 
 def _nick_to_restore(
@@ -44,45 +58,124 @@ def _nick_to_restore(
     return utils.remove_mode_prefix(member.display_name, char)
 
 
+def _scan_complete() -> bool:
+    """True when the first-boot scan has finished and there is no progress to resume."""
+    return store.exists(STATE_FILE) and not store.exists(SCAN_PROGRESS_FILE)
+
+
+def _load_scan_progress() -> dict[str, Any]:
+    """Load the first-boot scan progress cursor, or return an empty dict."""
+    if not store.exists(SCAN_PROGRESS_FILE):
+        return {}
+    progress = store.load(SCAN_PROGRESS_FILE, default={})
+    return progress if isinstance(progress, dict) else {}
+
+
+def _save_scan_progress(progress: dict[str, Any]) -> None:
+    """Persist scan progress so it can resume after a restart or crash."""
+    store.save(SCAN_PROGRESS_FILE, progress)
+
+
+def _clear_scan_progress() -> None:
+    """Remove the scan progress file once the scan is fully complete."""
+    try:
+        os.remove(store._path(SCAN_PROGRESS_FILE))
+    except OSError:
+        pass
+
+
 async def _scan_on_first_boot(bot) -> None:
-    """One-time scan: if there's no state yet, adopt anyone already wearing the
-    default marker character (:data:`DEFAULT_CHAR`).
+    """Resumable first-boot scan: adopt members already wearing the default marker.
 
-    Without this, a marker added before the bot ever ran (or while a previous state
-    file was lost) would have no expiry and linger forever. We can only detect the
-    *default* marker here, since we have no record of past custom characters. The
-    file is written even if nobody is found, so the scan never runs again.
+    Members are fetched in batches of :data:`SCAN_BATCH_SIZE` per guild per
+    maintenance tick, using a progress file to track the cursor (last-seen user ID)
+    so a crash or restart mid-scan can resume where it left off rather than
+    starting over. Each batch's adopted members are saved immediately, so no work
+    is lost on interruption, and the natural one-minute cadence of the maintenance
+    loop provides cool-down between API calls. When all guilds have been fully
+    scanned the progress file is deleted, and the function becomes a no-op.
 
-    NOTE: On very large servers ``fetch_members(limit=None)`` loads every member
-    into the gateway cache and can make many paginated API requests. This is a
-    one-time cost at first startup. If the bot serves a guild above ~10 000 members
-    you may want to initialise the state file by hand instead.
+    Without this scan, a marker added before the bot ever ran (or while a previous
+    state file was corrupted and quarantined) would have no expiry and linger
+    forever. We can only detect the *default* marker here, since we have no record
+    of past custom characters.
     """
-    if store.exists(STATE_FILE):
+    if _scan_complete():
         return
 
-    state = _empty_state()
-    expires_at = int(time.time()) + DEFAULT_DURATION_MINUTES * 60
-    adopted = 0
+    # If the state file was lost (corrupted + quarantined) but progress still
+    # exists, reset and start fresh — the old cursor is meaningless without the
+    # matching state it was built against.
+    if not store.exists(STATE_FILE):
+        _clear_scan_progress()
+
+    progress = _load_scan_progress()
+    state = _load_state()
+    now = int(time.time())
+    expires_at = now + DEFAULT_DURATION_MINUTES * 60
+
+    # Prune guilds the bot has left since the last tick so they can't block the
+    # "all done" check forever.
+    active_guild_ids = {str(g.id) for g in bot.guilds}
+    for stale in list(progress.keys()):
+        if stale not in active_guild_ids:
+            del progress[stale]
+
     for guild in bot.guilds:
-        guild_users: dict[str, Any] | None = None
-        async for member in guild.fetch_members(limit=None):
+        guild_id_str = str(guild.id)
+        gp = progress.setdefault(
+            guild_id_str, {"after": None, "done": False, "adopted": 0}
+        )
+
+        if gp.get("done"):
+            continue
+
+        after_id = int(gp["after"]) if gp.get("after") else None
+        batch: list[discord.Member] = []
+
+        try:
+            async for member in guild.fetch_members(
+                limit=SCAN_BATCH_SIZE, after=after_id
+            ):
+                batch.append(member)
+        except discord.HTTPException as exc:
+            log.warning("scan batch failed for guild %s: %s", guild_id_str, exc)
+            continue
+
+        guild_users = _ensure_guild_users(state, guild.id)
+        for member in batch:
             if member.display_name.startswith(DEFAULT_CHAR):
-                original_nick = (
-                    utils.remove_mode_prefix(member.nick, DEFAULT_CHAR)
-                    if member.nick
-                    else None
-                )
-                if guild_users is None:
-                    guild_users = _ensure_guild_users(state, guild.id)
-                guild_users[str(member.id)] = {
-                    "char": DEFAULT_CHAR,
-                    "expires_at": expires_at,
-                    "original_nick": original_nick,
-                }
-                adopted += 1
-    _save_state(state)
-    log.info("first-boot scan adopted %d member(s) wearing %s", adopted, DEFAULT_CHAR)
+                uid = str(member.id)
+                if uid not in guild_users:
+                    original_nick = (
+                        utils.remove_mode_prefix(member.nick, DEFAULT_CHAR)
+                        if member.nick
+                        else None
+                    )
+                    guild_users[uid] = {
+                        "char": DEFAULT_CHAR,
+                        "expires_at": expires_at,
+                        "original_nick": original_nick,
+                    }
+                    gp["adopted"] += 1
+
+        _save_state(state)
+
+        if len(batch) < SCAN_BATCH_SIZE:
+            gp["done"] = True
+            log.info(
+                "scan complete for guild %s: adopted %d",
+                guild_id_str,
+                gp["adopted"],
+            )
+        elif batch:
+            gp["after"] = str(batch[-1].id)
+
+    if all(p.get("done") for p in progress.values()):
+        _clear_scan_progress()
+        log.info("first-boot scan fully complete")
+    else:
+        _save_scan_progress(progress)
 
 
 async def _sweep_expired(bot) -> None:
