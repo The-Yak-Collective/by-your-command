@@ -8,7 +8,7 @@ transparently. These tests cover both validation of the v2 layout and that
 migration, plus the long-standing "drop malformed records" behaviour.
 """
 
-from bot.commands import chmod
+from bot.commands import chmod_state as chmod
 
 
 # --- v2 nested layout: validation ----------------------------------------------

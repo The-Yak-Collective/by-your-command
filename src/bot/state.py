@@ -21,9 +21,11 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar, overload
 
 log = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
 
 
 def base_dir() -> Path:
@@ -56,19 +58,27 @@ class JSONStore:
     """Reads and writes JSON files within one command's private state directory."""
 
     def __init__(self, command_name: str) -> None:
-        # e.g. ${XDG_STATE_HOME}/by-your-command/chmod/
         self.dir: Path = base_dir() / _require_simple_name(command_name)
 
     def _path(self, filename: str) -> Path:
-        # Validate every filename too, so a relative name can never escape self.dir.
         return self.dir / _require_simple_name(filename)
 
     def exists(self, filename: str) -> bool:
         """True if the named state file has been written at least once."""
         return self._path(filename).is_file()
 
+    @overload
+    def load(self, filename: str) -> Any: ...
+
+    @overload
+    def load(self, filename: str, default: _T) -> _T: ...
+
     def load(self, filename: str, default: Any = None) -> Any:
         """Return the parsed JSON contents, or ``default`` if the file is absent.
+
+        When ``default`` is provided the return type is inferred from it — no manual
+        type-narrowing needed at call sites. Without ``default`` the return type is
+        ``Any`` (the JSON may contain anything).
 
         If the file exists but is not valid JSON (a partial manual edit, a disk
         problem, a truncated write), we do not let the error propagate and break the
@@ -100,10 +110,7 @@ class JSONStore:
         """Atomically write ``data`` as JSON to the named state file."""
         self.dir.mkdir(parents=True, exist_ok=True)
         target = self._path(filename)
-        # Write to a sibling temp file first, then atomically replace the target, so
-        # a reader (or a crash) never observes a half-written file.
         tmp = target.with_name(target.name + ".tmp")
         with tmp.open("w", encoding="utf-8") as handle:
-            # ensure_ascii=False keeps emoji (e.g. 🙊) readable in the file on disk.
             json.dump(data, handle, ensure_ascii=False, indent=2)
         os.replace(tmp, target)

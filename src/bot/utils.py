@@ -4,16 +4,19 @@ These functions hold the bits of logic worth testing in isolation — URL parsin
 message chunking, nickname-prefix toggling, expiry selection, duration validation —
 kept separate from Discord I/O so the unit tests need no network or Discord objects.
 The single exception is :func:`splitsend`, the thin async wrapper that actually
-sends the chunks produced by :func:`chunk_message`.
+sends the chunks produced by :func:`chunk_message`, with partial-failure resilience.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:  # imported only for type hints; avoids a runtime discord dependency
     import discord
+
+log = logging.getLogger(__name__)
 
 # Discord rejects messages longer than 2000 characters. We chunk at a lower
 # threshold to leave headroom (e.g. for code-fence wrapping) and avoid edge cases.
@@ -181,15 +184,19 @@ async def splitsend(
     for chunk in chunk_message(text):
         if not chunk:
             continue  # never attempt to send an empty message (Discord rejects it)
-        # Only forward allowed_mentions when the caller set it: discord.py treats an
-        # explicit None differently from "argument omitted", so omitting it preserves
-        # the library's default behaviour for callers that don't care about mentions.
-        # suppress_embeds defaults to False in the same way, so it's always safe to pass.
-        if allowed_mentions is None:
-            await channel.send(chunk, suppress_embeds=suppress_embeds)
-        else:
-            await channel.send(
-                chunk,
-                allowed_mentions=allowed_mentions,
-                suppress_embeds=suppress_embeds,
+        try:
+            if allowed_mentions is None:
+                await channel.send(chunk, suppress_embeds=suppress_embeds)
+            else:
+                await channel.send(
+                    chunk,
+                    allowed_mentions=allowed_mentions,
+                    suppress_embeds=suppress_embeds,
+                )
+        except Exception as exc:
+            # A single chunk failing (e.g. rate-limit, content filter) must not prevent
+            # the remaining chunks from being sent. The partially-posted message is
+            # better than a gap where the rest of the text was silently dropped.
+            log.warning(
+                "splitsend: failed to send chunk (%d chars): %s", len(chunk), exc
             )

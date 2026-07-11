@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
+from typing import Any, Protocol
 
 log = logging.getLogger(__name__)
 
@@ -29,9 +30,27 @@ log = logging.getLogger(__name__)
 # has actually expired.
 TICK_INTERVAL_MINUTES = 1
 
-# A maintenance action receives the bot/client and returns an awaitable. The bot is
-# typed loosely as ``object`` to avoid importing (and depending on) bot.client here.
-Action = Callable[[object], Awaitable[None]]
+
+class _BotLike(Protocol):
+    """The minimal bot interface that maintenance actions call through.
+
+    At runtime the bot is always a ``commands.Bot`` subclass, but this protocol keeps
+    ``maintenance.py`` free of any import dependency on ``bot.client`` and documents
+    exactly what surface-area the registered actions are allowed to touch. The
+    attributes are typed as ``Any`` deliberately — the real types live in
+    ``discord.py`` and declaring them precisely here would create a hard dependency.
+    """
+
+    guilds: Any  # iterable of guild objects (each with .id, .fetch_members)
+
+    def get_guild(self, guild_id: int, /) -> Any | None: ...
+
+
+# A maintenance action receives the bot and returns an awaitable. The bot parameter
+# is typed via _BotLike (a Protocol) instead of plain ``object`` so that type-checkers
+# can verify the call sites pass something guild-aware, while still keeping
+# maintenance.py free of any import of bot.client or discord.py.
+Action = Callable[[_BotLike], Awaitable[None]]
 
 _startup: list[tuple[str, Action]] = []
 _periodic: list[tuple[str, Action]] = []
@@ -47,20 +66,19 @@ def register_periodic(name: str, action: Action) -> None:
     _periodic.append((name, action))
 
 
-async def _run(actions: list[tuple[str, Action]], bot: object) -> None:
+async def _run(actions: list[tuple[str, Action]], bot: Any) -> None:
     for name, action in actions:
         try:
             await action(bot)
         except Exception:
-            # One failing action must never take down the loop or the others.
             log.exception("maintenance action %r failed", name)
 
 
-async def run_startup(bot: object) -> None:
+async def run_startup(bot: Any) -> None:
     """Run all registered startup actions (intended to run once)."""
     await _run(_startup, bot)
 
 
-async def run_periodic(bot: object) -> None:
+async def run_periodic(bot: Any) -> None:
     """Run all registered periodic actions (intended to run every tick)."""
     await _run(_periodic, bot)

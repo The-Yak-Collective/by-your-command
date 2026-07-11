@@ -73,11 +73,12 @@ class ByYourCommandBot(commands.Bot):
         With a configured guild we sync to just that server (instant); otherwise we
         sync globally (which can take up to ~1 hour to propagate).
         """
-        if config.GUILD_ID is not None:
-            guild = discord.Object(id=config.GUILD_ID)
+        guild_id = config.get_guild_id()
+        if guild_id is not None:
+            guild = discord.Object(id=guild_id)
             self.tree.copy_global_to(guild=guild)
             synced = await self.tree.sync(guild=guild)
-            log.info("synced %d command(s) to guild %s", len(synced), config.GUILD_ID)
+            log.info("synced %d command(s) to guild %s", len(synced), guild_id)
         else:
             synced = await self.tree.sync()
             log.info("synced %d command(s) globally (may take up to ~1h)", len(synced))

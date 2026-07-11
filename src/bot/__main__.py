@@ -27,7 +27,7 @@ def main() -> None:
 
     bot = ByYourCommandBot()
     # log_handler=None: keep our basicConfig instead of discord.py installing its own.
-    bot.run(config.TOKEN, log_handler=None)
+    bot.run(config.get_token(), log_handler=None)
 
 
 if __name__ == "__main__":

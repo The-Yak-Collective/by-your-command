@@ -42,15 +42,22 @@ uv sync
 # Verify the freshly-pulled code BEFORE touching the running bot. A bad commit or
 # dependency bump must not be deployed automatically. We run the test suite and the
 # linters; shell lint is skipped gracefully if shellcheck isn't on the deploy box.
-# `|| verify_ok=false` keeps `set -e` from aborting before we can roll back.
+# Explicit if/fi blocks replace the old ``|| verify_ok=false`` chain so the
+# verification logic is clearer and immune to refactoring accidents.
 verify_ok=true
 echo "--- verifying: pytest"
-uv run pytest -q || verify_ok=false
+if ! uv run pytest -q; then
+	verify_ok=false
+fi
 echo "--- verifying: ruff"
-uv run ruff check || verify_ok=false
+if ! uv run ruff check; then
+	verify_ok=false
+fi
 if command -v shellcheck >/dev/null 2>&1; then
 	echo "--- verifying: shellcheck"
-	shellcheck scripts/*.sh init.sh || verify_ok=false
+	if ! shellcheck scripts/*.sh init.sh; then
+		verify_ok=false
+	fi
 else
 	echo "--- verifying: shellcheck not installed, skipping shell lint"
 fi

@@ -63,11 +63,17 @@ stop() {
 		return 0
 	fi
 	kill "$pid"
-	# Give it a few seconds to shut down cleanly before giving up.
+	# Give it a few seconds to shut down cleanly.
 	for _ in 1 2 3 4 5; do
 		kill -0 "$pid" 2>/dev/null || break
 		sleep 1
 	done
+	# If the process still hasn't exited, force-kill it so a subsequent start
+	# does not create a second instance alongside the stuck one.
+	if kill -0 "$pid" 2>/dev/null; then
+		echo "warning: graceful shutdown timed out, sending SIGKILL"
+		kill -9 "$pid" 2>/dev/null || true
+	fi
 	rm -f "$PID_FILE"
 	echo "stopped (pid $pid)"
 }
