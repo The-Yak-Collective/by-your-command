@@ -119,23 +119,27 @@ ${XDG_STATE_HOME:-$HOME/.local/state}/by-your-command/
 
 ```
 .
-├── init.sh                 # idempotent setup + cron install
-├── pyproject.toml          # project metadata + dependencies (managed by uv)
+├── init.sh                  # idempotent setup + cron install
+├── pyproject.toml           # project metadata + dependencies (managed by uv)
 ├── scripts/
-│   ├── bot.sh              # start|stop|restart|status
-│   └── update.sh           # nightly git pull + uv sync + restart
+│   ├── bot.sh               # start|stop|restart|status
+│   └── update.sh            # nightly git pull + uv sync + restart
 ├── src/bot/
-│   ├── __main__.py         # entry point (`python -m bot`)
-│   ├── config.py           # loads & validates env config
-│   ├── client.py           # builds the bot, auto-loads commands, runs maintenance
-│   ├── state.py            # per-command persistent JSON state (XDG)
-│   ├── maintenance.py      # registry for startup/periodic background actions
-│   ├── utils.py            # small, unit-tested helpers
-│   └── commands/           # ← one file per slash command (auto-discovered)
-│       ├── chmod.py        # /chmod + the shared mode-marker core
-│       ├── showmymode.py   # deprecated /showmymode shim over chmod's core
+│   ├── __init__.py          # package docstring (architecture overview)
+│   ├── __main__.py          # entry point (`python -m bot`)
+│   ├── config.py            # loads & validates env config
+│   ├── client.py            # builds the bot, auto-loads commands, runs maintenance
+│   ├── state.py             # per-command persistent JSON state (XDG)
+│   ├── maintenance.py       # registry for startup/periodic background actions
+│   ├── utils.py             # small, unit-tested helpers
+│   └── commands/            # ← one file per slash command (auto-discovered)
+│       ├── __init__.py          # package docstring (auto-discovery)
+│       ├── chmod.py             # /chmod command cog + on/off/swap routing
+│       ├── chmod_maintenance.py # first-boot scan + periodic expiry sweep
+│       ├── chmod_state.py       # persistent state model (load/save/normalize/migrate)
+│       ├── showmymode.py        # deprecated /showmymode shim over chmod's core
 │       └── tfurl.py
-└── tests/                  # unit tests for the pure helpers
+└── tests/                   # unit + command-level tests (fakes, no network)
 ```
 
 ## Adding a new slash command
@@ -198,14 +202,17 @@ auto-expiring marker.
 ## Development
 
 ```sh
-uv run pytest            # run the unit tests (pure helpers only — no network)
+uv run pytest            # run the tests (lightweight fakes, no network)
 uv run ruff format       # format the Python code
 uv run ruff check        # lint the Python code
 shfmt -w  scripts/*.sh init.sh   # format the shell scripts
 shellcheck scripts/*.sh init.sh  # lint the shell scripts
 ```
 
-Only the side-effect-free logic in `src/bot/utils.py` and `src/bot/state.py` is unit
-tested (URL parsing, message chunking, nickname toggling, expiry selection, duration
-validation, state round-trips). The Discord I/O is intentionally kept as thin call
-sites around that tested logic.
+The test suite covers both pure logic (URL parsing, message chunking, nickname
+toggling, expiry selection, duration validation, state round-trips, state
+normalization, and v1-to-v2 migration) and command-level behaviour (on/off/routing,
+multi-guild independence, nickname restoration, authorization boundaries, mention
+suppression, attachment/sticker handling, and forward support) — all via lightweight
+fakes so no network or gateway connection is involved. The Discord I/O is intentionally
+kept as thin, untested call sites around that tested logic.
