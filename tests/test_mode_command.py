@@ -1,4 +1,4 @@
-"""Command-level tests for /chmod: nickname restoration, the duration cap, routing,
+"""Command-level tests for /mode: nickname restoration, the duration cap, routing,
 and multi-guild independence.
 
 The pure prefix/expiry helpers are tested elsewhere; here we exercise the parts that
@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from bot.commands import chmod, chmod_state
+from bot.commands import mode, mode_state
 
 GUILD_ID = 7
 OTHER_GUILD = 8
@@ -64,7 +64,7 @@ def _record(user_id, *, guild_id=GUILD_ID) -> Any:
     Uses the real per-guild accessor so the tests exercise the same nesting the
     production code reads, rather than hardcoding the on-disk shape again.
     """
-    return chmod_state._users_in_guild(chmod_state._load_state(), guild_id).get(
+    return mode_state._users_in_guild(mode_state._load_state(), guild_id).get(
         str(user_id)
     )
 
@@ -75,11 +75,11 @@ def _record(user_id, *, guild_id=GUILD_ID) -> Any:
 def test_turn_off_restores_absence_of_nickname(isolated_store):
     member = FakeMember(42, nick=None, username="Alice")
 
-    asyncio.run(chmod._turn_on(_interaction(), member, "🙊", None))
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", None))
     assert member.nick == "🙊Alice"
     assert _record(42)["original_nick"] is None
 
-    asyncio.run(chmod._turn_off(_interaction(), member))
+    asyncio.run(mode._turn_off(_interaction(), member))
     assert member.nick is None  # restored to "no nickname", not "Alice"
     assert _record(42) is None
 
@@ -87,31 +87,91 @@ def test_turn_off_restores_absence_of_nickname(isolated_store):
 def test_turn_off_restores_existing_nickname(isolated_store):
     member = FakeMember(43, nick="Bob", username="bob_account")
 
-    asyncio.run(chmod._turn_on(_interaction(), member, "🙊", None))
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", None))
     assert member.nick == "🙊Bob"
 
-    asyncio.run(chmod._turn_off(_interaction(), member))
+    asyncio.run(mode._turn_off(_interaction(), member))
     assert member.nick == "Bob"
 
 
 def test_turn_on_twice_does_not_capture_marked_nick(isolated_store):
     member = FakeMember(44, nick="Carol", username="carol")
 
-    asyncio.run(chmod._turn_on(_interaction(), member, "🙊", None))
-    asyncio.run(chmod._turn_on(_interaction(), member, "🙊", None))
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", None))
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", None))
     assert _record(44)["original_nick"] == "Carol"
 
-    asyncio.run(chmod._turn_off(_interaction(), member))
+    asyncio.run(mode._turn_off(_interaction(), member))
     assert member.nick == "Carol"
+
+
+def test_turn_on_with_different_emoji_replaces_marker(isolated_store):
+    """Re-activating with a different emoji replaces the old marker, not stacks it.
+
+    Regression test: ``_turn_on`` used to base the new prefix on the live
+    ``member.display_name``, which still carried the *previous* marker, so going
+    from 🙊 to 🔇 produced ``"🔇🙊Alice"``. The fix is to use the un-marked
+    ``original_nick`` (or display name when no record exists) as the base.
+    """
+    member = FakeMember(100, nick="Carol", username="carol")
+
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", None))
+    assert member.nick == "🙊Carol"
+
+    asyncio.run(mode._turn_on(_interaction(), member, "🔇", None))
+    assert member.nick == "🔇Carol"  # not "🔇🙊Carol"
+
+    # Turn-off must still restore the un-marked original, even though we
+    # re-activated with a different marker in between.
+    asyncio.run(mode._turn_off(_interaction(), member))
+    assert member.nick == "Carol"
+
+
+def test_turn_on_with_different_emoji_when_no_existing_nick(isolated_store):
+    """Same fix, but for a user who had no nickname when they first turned on.
+
+    ``original_nick`` is ``None`` in that case, so the un-marked base falls back
+    to ``member.display_name`` (the username) — a different marker should still
+    replace, not stack on top of an empty base.
+    """
+    member = FakeMember(101, nick=None, username="dave")
+
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", None))
+    assert member.nick == "🙊dave"
+
+    asyncio.run(mode._turn_on(_interaction(), member, "🔇", None))
+    assert member.nick == "🔇dave"  # not "🔇🙊dave"
+
+
+def test_turn_on_resets_expiry_on_second_call(isolated_store):
+    """Re-calling ``_turn_on`` with a new ``minutes`` value resets the timer.
+
+    The record is fully replaced on each call (not merged), so the new
+    ``expires_at`` is computed from the current time plus the new duration —
+    a longer second call restarts the clock rather than extending the
+    already-recorded one.
+    """
+    member = FakeMember(102, nick="Eve", username="eve")
+
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", 10))
+    first_expires = _record(102)["expires_at"]
+
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", 20))
+    second_expires = _record(102)["expires_at"]
+
+    # 20 min from now is later than 10 min from now (by ~10 minutes of clock
+    # time), so the second expiry must be strictly greater than the first.
+    assert second_expires > first_expires
+    # Sanity: the second expiry is ~20 minutes out, not ~30.
+    now = int(__import__("time").time())
+    assert second_expires - now == pytest.approx(20 * 60, abs=5)
 
 
 def test_turn_on_rejects_duration_over_maximum(isolated_store):
     member = FakeMember(45, nick=None, username="Dave")
     interaction = _interaction()
 
-    asyncio.run(
-        chmod._turn_on(interaction, member, "🙊", chmod.MAX_DURATION_MINUTES + 1)
-    )
+    asyncio.run(mode._turn_on(interaction, member, "🙊", mode.MAX_DURATION_MINUTES + 1))
 
     assert member.edits == []
     assert member.nick is None
@@ -123,9 +183,7 @@ def test_turn_on_rejects_duration_over_maximum(isolated_store):
 def test_turn_on_accepts_duration_at_maximum(isolated_store):
     member = FakeMember(46, nick=None, username="Erin")
 
-    asyncio.run(
-        chmod._turn_on(_interaction(), member, "🙊", chmod.MAX_DURATION_MINUTES)
-    )
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", mode.MAX_DURATION_MINUTES))
 
     assert member.nick == "🙊Erin"
     assert _record(46) is not None
@@ -138,7 +196,7 @@ def test_turn_on_rejects_duration_below_tick(isolated_store, monkeypatch):
     member = FakeMember(47, nick=None, username="Frank")
     interaction = _interaction()
 
-    asyncio.run(chmod._turn_on(interaction, member, "🙊", 3))
+    asyncio.run(mode._turn_on(interaction, member, "🙊", 3))
 
     assert member.edits == []
     assert member.nick is None
@@ -152,7 +210,7 @@ def test_turn_on_accepts_duration_at_tick(isolated_store, monkeypatch):
     monkeypatch.setattr(maint, "TICK_INTERVAL_MINUTES", 5)
     member = FakeMember(48, nick=None, username="Gina")
 
-    asyncio.run(chmod._turn_on(_interaction(), member, "🙊", 5))
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", 5))
 
     assert member.nick == "🙊Gina"
     assert _record(48) is not None
@@ -161,14 +219,14 @@ def test_turn_on_accepts_duration_at_tick(isolated_store, monkeypatch):
 def test_messages_reflect_the_selected_character(isolated_store):
     member = FakeMember(49, nick=None, username="Tree")
     on_interaction = _interaction()
-    asyncio.run(chmod._turn_on(on_interaction, member, "🎄", None))
+    asyncio.run(mode._turn_on(on_interaction, member, "🎄", None))
     assert (
         on_interaction.response.messages[-1][0]
         == "You're in 🎄 mode for the next 90 minutes."
     )
 
     off_interaction = _interaction()
-    asyncio.run(chmod._turn_off(off_interaction, member))
+    asyncio.run(mode._turn_off(off_interaction, member))
     assert off_interaction.response.messages[-1][0] == "🎄 mode off."
 
 
@@ -177,34 +235,34 @@ def test_messages_reflect_the_selected_character(isolated_store):
 
 def test_apply_enable_true_turns_on(isolated_store):
     member = FakeMember(50, nick=None, username="Henry")
-    asyncio.run(chmod.apply(_interaction(), member, True, "🙊", None))
+    asyncio.run(mode.apply(_interaction(), member, True, "🙊", None))
     assert member.nick == "🙊Henry"
     assert _record(50) is not None
 
 
 def test_apply_enable_false_turns_off(isolated_store):
     member = FakeMember(51, nick="Ivy", username="ivy")
-    asyncio.run(chmod._turn_on(_interaction(), member, "🙊", None))
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", None))
     assert member.nick == "🙊Ivy"
 
-    asyncio.run(chmod.apply(_interaction(), member, False, "🙊", None))
+    asyncio.run(mode.apply(_interaction(), member, False, "🙊", None))
     assert member.nick == "Ivy"
     assert _record(51) is None
 
 
 def test_apply_enable_omitted_swaps_on_when_inactive(isolated_store):
     member = FakeMember(52, nick=None, username="Jules")
-    asyncio.run(chmod.apply(_interaction(), member, None, "🙊", None))
+    asyncio.run(mode.apply(_interaction(), member, None, "🙊", None))
     assert member.nick == "🙊Jules"
     assert _record(52) is not None
 
 
 def test_apply_enable_omitted_swaps_off_when_active(isolated_store):
     member = FakeMember(53, nick="Kim", username="kim")
-    asyncio.run(chmod._turn_on(_interaction(), member, "🙊", None))
+    asyncio.run(mode._turn_on(_interaction(), member, "🙊", None))
     assert member.nick == "🙊Kim"
 
-    asyncio.run(chmod.apply(_interaction(), member, None, "🙊", None))
+    asyncio.run(mode.apply(_interaction(), member, None, "🙊", None))
     assert member.nick == "Kim"
     assert _record(53) is None
 
@@ -212,17 +270,17 @@ def test_apply_enable_omitted_swaps_off_when_active(isolated_store):
 # --- the cog's in-server guard -------------------------------------------------
 
 
-def test_chmod_refuses_use_outside_a_server(isolated_store):
+def test_mode_refuses_use_outside_a_server(isolated_store):
     interaction = types.SimpleNamespace(
         user=types.SimpleNamespace(), response=FakeResponse()
     )
-    cog = chmod.Chmod(bot=None)
+    cog = mode.Mode(bot=None)
 
-    asyncio.run(chmod.Chmod.chmod.callback(cog, interaction, None, None, None))
+    asyncio.run(mode.Mode.mode.callback(cog, interaction, None, None, None))
 
     assert interaction.response.messages
     assert "server" in interaction.response.messages[-1][0].lower()
-    assert chmod_state._load_state()["guilds"] == {}
+    assert mode_state._load_state()["guilds"] == {}
 
 
 # --- no-record-off guard (multi-guild reachable) -------------------------------
@@ -232,12 +290,12 @@ def test_turn_off_with_no_record_in_this_guild_is_a_noop(isolated_store):
     member = FakeMember(70, nick="Plain", username="plain")
     interaction = _interaction()
 
-    asyncio.run(chmod._turn_off(interaction, member))
+    asyncio.run(mode._turn_off(interaction, member))
 
     assert member.edits == []  # no nickname edit attempted
     assert member.nick == "Plain"  # untouched
     assert "marker" in interaction.response.messages[-1][0].lower()
-    assert chmod_state._load_state()["guilds"] == {}  # nothing to delete
+    assert mode_state._load_state()["guilds"] == {}  # nothing to delete
 
 
 # --- multi-guild independence --------------------------------------------------
@@ -247,8 +305,8 @@ def test_turn_on_in_two_guilds_keeps_independent_records(isolated_store):
     member_a = FakeMember(80, nick="Alice", username="alice", guild_id=GUILD_ID)
     member_b = FakeMember(80, nick=None, username="alice", guild_id=OTHER_GUILD)
 
-    asyncio.run(chmod._turn_on(_interaction(), member_a, "🙊", None))
-    asyncio.run(chmod._turn_on(_interaction(), member_b, "🔇", None))
+    asyncio.run(mode._turn_on(_interaction(), member_a, "🙊", None))
+    asyncio.run(mode._turn_on(_interaction(), member_b, "🔇", None))
 
     assert member_a.nick == "🙊Alice"
     assert member_b.nick == "🔇alice"
@@ -265,8 +323,8 @@ def test_swap_in_guild_b_does_not_turn_off_guild_a(isolated_store):
     member_a = FakeMember(81, nick="Alice", username="alice", guild_id=GUILD_ID)
     member_b = FakeMember(81, nick=None, username="alice", guild_id=OTHER_GUILD)
 
-    asyncio.run(chmod._turn_on(_interaction(), member_a, "🙊", None))
-    asyncio.run(chmod.apply(_interaction(), member_b, None, "🔇", None))
+    asyncio.run(mode._turn_on(_interaction(), member_a, "🙊", None))
+    asyncio.run(mode.apply(_interaction(), member_b, None, "🔇", None))
 
     assert member_a.nick == "🙊Alice"
     assert member_b.nick == "🔇alice"
@@ -278,11 +336,11 @@ def test_force_off_in_guild_without_record_leaves_other_guild_intact(isolated_st
     member_a = FakeMember(82, nick="Alice", username="alice", guild_id=GUILD_ID)
     member_b = FakeMember(82, nick=None, username="alice", guild_id=OTHER_GUILD)
 
-    asyncio.run(chmod._turn_on(_interaction(), member_a, "🙊", None))
+    asyncio.run(mode._turn_on(_interaction(), member_a, "🙊", None))
     assert member_a.nick == "🙊Alice"
 
     interaction_b = _interaction()
-    asyncio.run(chmod.apply(interaction_b, member_b, False, "🙊", None))
+    asyncio.run(mode.apply(interaction_b, member_b, False, "🙊", None))
 
     assert member_b.edits == []
     assert "marker" in interaction_b.response.messages[-1][0].lower()
@@ -294,10 +352,10 @@ def test_turn_off_in_one_guild_does_not_remove_other_guilds_marker(isolated_stor
     member_a = FakeMember(83, nick="Alice", username="alice", guild_id=GUILD_ID)
     member_b = FakeMember(83, nick="Bee", username="bee", guild_id=OTHER_GUILD)
 
-    asyncio.run(chmod._turn_on(_interaction(), member_a, "🙊", None))
-    asyncio.run(chmod._turn_on(_interaction(), member_b, "🙊", None))
+    asyncio.run(mode._turn_on(_interaction(), member_a, "🙊", None))
+    asyncio.run(mode._turn_on(_interaction(), member_b, "🙊", None))
 
-    asyncio.run(chmod._turn_off(_interaction(), member_a))
+    asyncio.run(mode._turn_off(_interaction(), member_a))
 
     assert member_a.nick == "Alice"
     assert _record(83, guild_id=GUILD_ID) is None
@@ -326,9 +384,9 @@ class FakeBot:
 
 
 def test_sweep_clears_two_guilds_independently(isolated_store):
-    from bot.commands.chmod_maintenance import _sweep_expired
+    from bot.commands.mode_maintenance import _sweep_expired
 
-    state_dict = chmod_state._empty_state()
+    state_dict = mode_state._empty_state()
     state_dict["guilds"] = {
         str(GUILD_ID): {
             "users": {"10": {"char": "🙊", "expires_at": 1, "original_nick": "Ten"}}
@@ -337,7 +395,7 @@ def test_sweep_clears_two_guilds_independently(isolated_store):
             "users": {"20": {"char": "🔇", "expires_at": 1, "original_nick": "Twenty"}}
         },
     }
-    chmod_state._save_state(state_dict)
+    mode_state._save_state(state_dict)
 
     member_a = FakeMember(10, nick="🙊TenNow", username="ten", guild_id=GUILD_ID)
     member_b = FakeMember(
@@ -354,14 +412,14 @@ def test_sweep_clears_two_guilds_independently(isolated_store):
 
     assert member_a.nick == "Ten"
     assert member_b.nick == "Twenty"
-    assert chmod_state._load_state()["guilds"] == {}
+    assert mode_state._load_state()["guilds"] == {}
 
 
 def test_sweep_leaves_unexpired_marker_in_other_guild(isolated_store):
-    from bot.commands.chmod_maintenance import _sweep_expired
+    from bot.commands.mode_maintenance import _sweep_expired
 
     now = int(__import__("time").time())
-    state_dict = chmod_state._empty_state()
+    state_dict = mode_state._empty_state()
     state_dict["guilds"] = {
         str(GUILD_ID): {
             "users": {
@@ -374,7 +432,7 @@ def test_sweep_leaves_unexpired_marker_in_other_guild(isolated_store):
             }
         },
     }
-    chmod_state._save_state(state_dict)
+    mode_state._save_state(state_dict)
 
     member_a = FakeMember(30, nick="🙊AliceNow", username="alice", guild_id=GUILD_ID)
     member_b = FakeMember(30, nick="🔇BeeNow", username="bee", guild_id=OTHER_GUILD)
@@ -389,23 +447,23 @@ def test_sweep_leaves_unexpired_marker_in_other_guild(isolated_store):
 
     assert member_a.nick == "Alice"
     assert member_b.nick == "🔇BeeNow"
-    assert str(GUILD_ID) not in chmod_state._load_state()["guilds"]
+    assert str(GUILD_ID) not in mode_state._load_state()["guilds"]
     assert _record(30, guild_id=OTHER_GUILD) is not None
 
 
 def test_sweep_drops_record_when_bot_left_that_guild(isolated_store):
-    from bot.commands.chmod_maintenance import _sweep_expired
+    from bot.commands.mode_maintenance import _sweep_expired
 
-    state_dict = chmod_state._empty_state()
+    state_dict = mode_state._empty_state()
     state_dict["guilds"] = {
         str(GUILD_ID): {
             "users": {"40": {"char": "🙊", "expires_at": 1, "original_nick": "Forty"}}
         }
     }
-    chmod_state._save_state(state_dict)
+    mode_state._save_state(state_dict)
 
     bot = FakeBot(guilds={})  # bot left GUILD_ID
 
     asyncio.run(_sweep_expired(bot))
 
-    assert chmod_state._load_state()["guilds"] == {}
+    assert mode_state._load_state()["guilds"] == {}

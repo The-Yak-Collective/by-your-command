@@ -8,7 +8,7 @@ from bot import state
 def test_layout_and_roundtrip(tmp_path, monkeypatch):
     # Point the XDG state root at a throwaway directory for the duration of the test.
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-    store = state.JSONStore("chmod")
+    store = state.JSONStore("mode")
 
     # A never-written file does not "exist" and load() returns the default.
     assert not store.exists("modes.json")
@@ -18,7 +18,7 @@ def test_layout_and_roundtrip(tmp_path, monkeypatch):
     store.save("modes.json", data)
 
     # The file lands in the per-command subdirectory under the XDG state root.
-    expected = tmp_path / "by-your-command" / "chmod" / "modes.json"
+    expected = tmp_path / "by-your-command" / "mode" / "modes.json"
     assert expected.is_file()
     assert store.exists("modes.json")
 
@@ -32,7 +32,7 @@ def test_layout_and_roundtrip(tmp_path, monkeypatch):
 
 def test_load_quarantines_corrupt_json(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-    store = state.JSONStore("chmod")
+    store = state.JSONStore("mode")
 
     # Simulate a partially-written or hand-mangled state file.
     store.dir.mkdir(parents=True, exist_ok=True)
@@ -55,7 +55,7 @@ def test_rejects_path_traversal_in_command_name(tmp_path, monkeypatch):
 
 def test_rejects_path_traversal_in_filename(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-    store = state.JSONStore("chmod")
+    store = state.JSONStore("mode")
     for bad_name in ("../modes.json", "sub/modes.json", "..", "/abs.json"):
         with pytest.raises(ValueError):
             store.load(bad_name, default=None)

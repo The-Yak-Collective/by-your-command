@@ -1,4 +1,4 @@
-"""Tests for /chmod's state normalization and v1->v2 migration.
+"""Tests for /mode's state normalization and v1->v2 migration.
 
 The state shape is versioned: v2 nests records as guilds -> {gid} -> users ->
 {uid} -> record (keying by guild *and* user is what makes one bot instance safe
@@ -8,7 +8,7 @@ transparently. These tests cover both validation of the v2 layout and that
 migration, plus the long-standing "drop malformed records" behaviour.
 """
 
-from bot.commands import chmod_state as chmod
+from bot.commands import mode_state as mode
 
 
 # --- v2 nested layout: validation ----------------------------------------------
@@ -19,7 +19,7 @@ def test_v2_keeps_well_formed_record():
         "version": 2,
         "guilds": {"5": {"users": {"1": {"char": "🙊", "expires_at": 100}}}},
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     assert normalized == {
         "version": 2,
         "guilds": {"5": {"users": {"1": {"char": "🙊", "expires_at": 100}}}},
@@ -41,7 +41,7 @@ def test_v2_drops_records_missing_required_keys():
             }
         },
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     assert set(normalized["guilds"]["5"]["users"]) == {"ok"}
 
 
@@ -59,7 +59,7 @@ def test_v2_drops_records_with_wrong_types():
             }
         },
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     assert set(normalized["guilds"]["5"]["users"]) == {"ok"}
 
 
@@ -83,7 +83,7 @@ def test_v2_preserves_original_nick_including_none():
             }
         },
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     # None is meaningful ("no nickname"), so it must survive normalization.
     assert normalized["guilds"]["5"]["users"]["had_none"]["original_nick"] is None
     assert normalized["guilds"]["5"]["users"]["had_nick"]["original_nick"] == "Bob"
@@ -104,7 +104,7 @@ def test_v2_drops_invalid_original_nick_but_keeps_record():
             }
         },
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     # The record is otherwise valid, so it is kept — just without the bad field, so
     # cleanup falls back to stripping the marker rather than trusting bad data.
     assert "1" in normalized["guilds"]["5"]["users"]
@@ -120,7 +120,7 @@ def test_v2_ignores_redundant_guild_id_field_in_record():
             "5": {"users": {"1": {"guild_id": 5, "char": "🙊", "expires_at": 100}}}
         },
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     record = normalized["guilds"]["5"]["users"]["1"]
     assert "guild_id" not in record
     assert record == {"char": "🙊", "expires_at": 100}
@@ -128,12 +128,12 @@ def test_v2_ignores_redundant_guild_id_field_in_record():
 
 def test_v2_handles_non_dict_root_and_guilds():
     empty = {"version": 2, "guilds": {}}
-    assert chmod._normalize_state([]) == empty
-    assert chmod._normalize_state("garbage") == empty
-    assert chmod._normalize_state({"version": 2, "guilds": "not a dict"}) == empty
+    assert mode._normalize_state([]) == empty
+    assert mode._normalize_state("garbage") == empty
+    assert mode._normalize_state({"version": 2, "guilds": "not a dict"}) == empty
     # A guild entry that isn't a dict, or whose users isn't a dict, is skipped.
     assert (
-        chmod._normalize_state(
+        mode._normalize_state(
             {"version": 2, "guilds": {"5": "nope", "6": {"users": "nope"}}}
         )
         == empty
@@ -150,7 +150,7 @@ def test_v2_two_guilds_are_independent():
             "200": {"users": {"1": {"char": "🔇", "expires_at": 200}}},
         },
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     assert normalized["guilds"]["100"]["users"]["1"]["char"] == "🙊"
     assert normalized["guilds"]["200"]["users"]["1"]["char"] == "🔇"
 
@@ -165,7 +165,7 @@ def test_migrates_v1_flat_to_v2_nested():
         "version": 1,
         "users": {"1": {"guild_id": 5, "char": "🙊", "expires_at": 100}},
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     assert normalized == {
         "version": 2,
         "guilds": {"5": {"users": {"1": {"char": "🙊", "expires_at": 100}}}},
@@ -175,7 +175,7 @@ def test_migrates_v1_flat_to_v2_nested():
 def test_migrates_versionless_v1_state():
     # Even with no version field, a flat users dict is treated as v1 and migrated.
     raw = {"users": {"1": {"guild_id": 5, "char": "🙊", "expires_at": 100}}}
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     assert normalized["version"] == 2
     assert "1" in normalized["guilds"]["5"]["users"]
 
@@ -192,7 +192,7 @@ def test_v1_migration_preserves_original_nick():
             }
         },
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     assert normalized["guilds"]["5"]["users"]["1"]["original_nick"] is None
 
 
@@ -201,7 +201,7 @@ def test_v1_record_without_guild_id_is_dropped():
     # shape (which keys by guild) can't represent it — it is dropped, not silently
     # stuffed under a sentinel key.
     raw = {"version": 1, "users": {"1": {"char": "🙊", "expires_at": 100}}}
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     assert normalized["guilds"] == {}
 
 
@@ -212,7 +212,7 @@ def test_v1_record_with_non_int_guild_id_is_dropped():
         "version": 1,
         "users": {"1": {"guild_id": "5", "char": "🙊", "expires_at": 100}},
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     assert normalized["guilds"] == {}
 
 
@@ -226,7 +226,7 @@ def test_v1_migration_drops_malformed_records():
             "bad": {"guild_id": 5, "char": "🙊"},  # no expires_at
         },
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     assert set(normalized["guilds"]["5"]["users"]) == {"ok"}
 
 
@@ -239,7 +239,7 @@ def test_v1_migration_places_each_record_under_its_own_guild():
             "2": {"guild_id": 200, "char": "🔇", "expires_at": 200},
         },
     }
-    normalized = chmod._normalize_state(raw)
+    normalized = mode._normalize_state(raw)
     assert set(normalized["guilds"]) == {"100", "200"}
     assert normalized["guilds"]["100"]["users"]["1"]["char"] == "🙊"
     assert normalized["guilds"]["200"]["users"]["2"]["char"] == "🔇"

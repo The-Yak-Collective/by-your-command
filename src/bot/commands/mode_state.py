@@ -1,9 +1,9 @@
-"""/chmod persistent state model: constants, loading, validation, normalization.
+"""/mode persistent state model: constants, loading, validation, normalization.
 
-Separated from :mod:`bot.commands.chmod` so the state shape and its on-disk
+Separated from :mod:`bot.commands.mode` so the state shape and its on-disk
 representation stay decoupled from the Discord I/O and nickname logic. The core
 slash command imports from here; the maintenance sweep imports from here too,
-avoiding a circular dependency between chmod and chmod_maintenance.
+avoiding a circular dependency between mode and mode_maintenance.
 
 State shape
 -----------
@@ -25,10 +25,13 @@ from ..state import JSONStore
 
 log = logging.getLogger(__name__)
 
-# The state namespace is also the on-disk subdirectory name (.../by-your-command/chmod/
-# modes.json). It is decoupled from the slash-command name so renaming the command
-# never orphans persisted state.
-STATE_NAMESPACE = "chmod"
+# The state namespace is also the on-disk subdirectory name
+# (.../by-your-command/mode/modes.json). When the slash command was renamed
+# from /chmod to /mode the on-disk directory was renamed alongside it; the
+# old "chmod" directory must be moved by hand on redeploy or its in-progress
+# markers will be invisible until the first-boot scan re-adopts the default
+# 🙊 marker.
+STATE_NAMESPACE = "mode"
 STATE_FILE = "modes.json"
 DEFAULT_CHAR = "🙊"
 DEFAULT_DURATION_MINUTES = 90
@@ -194,4 +197,4 @@ def _drop_user(state: dict[str, Any], guild_id: int, user_id: str) -> None:
 
 
 async def setup(bot) -> None:
-    """No-op: all functionality is imported by chmod.py and chmod_maintenance.py."""
+    """No-op: all functionality is imported by mode.py and mode_maintenance.py."""

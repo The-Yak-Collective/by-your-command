@@ -1,9 +1,9 @@
-"""/chmod maintenance sweep: first-boot adoption scan and periodic expiry cleanup.
+"""/mode maintenance sweep: first-boot adoption scan and periodic expiry cleanup.
 
 These actions are registered with the bot's central sweep (:mod:`bot.maintenance`)
-from :func:`bot.commands.chmod.setup`. They live in their own module so the
-dependency chain stays acyclic: the sweep imports only from chmod_state and utils,
-never from chmod itself.
+from :func:`bot.commands.mode.setup`. They live in their own module so the
+dependency chain stays acyclic: the sweep imports only from mode_state and utils,
+never from mode itself.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Any
 import discord
 
 from .. import utils
-from .chmod_state import (
+from .mode_state import (
     DEFAULT_CHAR,
     DEFAULT_DURATION_MINUTES,
     STATE_FILE,
@@ -222,4 +222,4 @@ async def _sweep_expired(bot) -> None:
 
 
 async def setup(bot) -> None:
-    """No-op: all functionality is registered by chmod.setup()."""
+    """No-op: all functionality is registered by mode.setup()."""

@@ -1,14 +1,14 @@
-"""/showmymode — DEPRECATED; use /chmod instead.
+"""/showmymode — DEPRECATED; use /listenmode instead.
 
 This is a thin shim that preserves the old ``/showmymode`` command (same options and
-behaviour) so existing users aren't left without it, while nudging them toward
-``/chmod``. It holds none of the feature's state or logic: everything lives in
-:mod:`bot.commands.chmod`, and this module only maps the old on/off choice onto
-``/chmod``'s ``enable`` boolean (calling the shared :func:`~bot.commands.chmod.apply`)
-and follows up with a private deprecation notice.
+behaviour) so existing users aren't left without it, while nudging them toward the
+friendlier ``/listenmode`` wrapper. It holds none of the feature's state or logic:
+everything lives in :mod:`bot.commands.mode`, and this module only maps the old
+on/off choice onto :func:`~bot.commands.mode.apply`'s ``enable`` boolean and
+follows up with a private deprecation notice.
 
-When the migration is complete, deleting this one file removes ``/showmymode`` without
-touching the core or its persisted state.
+When the migration is complete, deleting this one file removes ``/showmymode``
+without touching the core or its persisted state.
 """
 
 from __future__ import annotations
@@ -18,13 +18,12 @@ from discord import app_commands
 from discord.app_commands import Choice
 from discord.ext import commands
 
-from .chmod import DEFAULT_CHAR, apply
+from .mode import DEFAULT_CHAR, apply
 
 # Shown only to the invoker (ephemeral followup) so it never clutters the channel.
 DEPRECATION_MESSAGE = (
     "⚠️ `/showmymode` is deprecated and will be removed in a future release. "
-    "Please switch to `/chmod` — it has the same effect with a clearer name, and its "
-    "`enable` option can be omitted to swap your current state."
+    "Please switch to `/listenmode` — it always uses 🙊, and tapping it toggles the state."
 )
 
 
@@ -37,12 +36,13 @@ async def _run_showmymode(
 ) -> None:
     """Apply the old on/off choice, then deliver the deprecation notice.
 
-    The old ``on``/``off`` choice maps directly onto ``/chmod``'s ``enable`` boolean
-    (``on`` → ``True``, ``off`` → ``False``), so this reuses :func:`bot.commands.chmod.apply`
-    rather than duplicating the on/off logic. ``apply`` sends the result as the initial
-    (ephemeral) response, so the deprecation goes out as an ephemeral *followup* right
-    beneath it — visible only to the invoker. It is sent on every path (success or
-    error) so the nudge reaches the user regardless of whether the mode change took.
+    The old ``on``/``off`` choice maps directly onto :func:`bot.commands.mode.apply`'s
+    ``enable`` boolean (``on`` → ``True``, ``off`` → ``False``), so this reuses it
+    rather than duplicating the on/off logic. ``apply`` sends the result as the
+    initial (ephemeral) response, so the deprecation goes out as an ephemeral
+    *followup* right beneath it — visible only to the invoker. It is sent on every
+    path (success or error) so the nudge reaches the user regardless of whether
+    the mode change took.
     """
     enable = onoff.value == 1  # on -> True, off -> False
     await apply(interaction, member, enable, char, minutes)
@@ -87,7 +87,7 @@ class ShowMyMode(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    # No maintenance registration here: bot.commands.chmod owns the single source of
+    # No maintenance registration here: bot.commands.mode owns the single source of
     # state and registers the startup scan + periodic sweep. Adding only the cog keeps
     # the sweep from being double-registered.
     await bot.add_cog(ShowMyMode(bot))

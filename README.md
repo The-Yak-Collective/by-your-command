@@ -1,16 +1,20 @@
 # By Your Command
 
-A small, modular Discord bot that (currently) provides two slash commands:
+A small, modular Discord bot that (currently) provides three slash commands:
 
 - **`/tfurl`** — "unfurl" a Discord message link by reposting that message in the
   current channel, attributed to its author and source channel. The text, any uploaded
   attachments (re-uploaded so they keep rendering), any rich (bot/webhook) embeds, and
   any stickers are all carried across.
-- **`/chmod`** — toggle a mode marker emoji (default 🙊) on your server
+- **`/mode`** — toggle a mode marker emoji (default 🙊) on your server
   nickname. The marker auto-removes after a timeout (default 90 minutes). Omit the
   `enable` option to swap your current state on/off.
-  (`/showmymode` is the deprecated old name for this command; it still works but nudges
-  you toward `/chmod`.)
+- **`/listenmode`** — a simplified wrapper around `/mode` that always uses the
+  🙊 marker and has no on/off option: just tap it to toggle. The only parameter
+  is the optional auto-remove timeout in minutes.
+
+  (`/showmymode` is the deprecated legacy name for this command; it still works
+  but nudges you toward `/listenmode`.)
 
 The codebase is built so that **adding a new slash command is as simple as
 copying one file**.
@@ -29,18 +33,19 @@ copying one file**.
 2. Open the **Bot** tab:
    - **Reset Token** and copy it — this is your `DISCORD_BOT_TOKEN`.
    - Under **Privileged Gateway Intents**, enable both:
-     - **Message Content Intent** (required by `/tfurl`).
-     - **Server Members Intent** (required by `/chmod`).
+      - **Message Content Intent** (required by `/tfurl`).
+      - **Server Members Intent** (required by `/mode` and `/listenmode`, which
+        edit nicknames and fetch the member list for the first-boot scan).
 3. Invite the bot to your server (**OAuth2 → URL Generator**):
    - Scopes: `bot` and `applications.commands`.
    - Bot permissions: **View Channels**, **Send Messages**, **Read Message History**
      (so `/tfurl` can fetch linked messages), and **Manage Nicknames** (so
-     `/chmod` can edit nicknames).
+     `/mode` and `/listenmode` can edit nicknames).
    - Open the generated URL and add the bot to your server.
 
 > **Nickname caveat:** Discord never lets *anyone* change the **server owner's**
 > nickname, and a bot can only edit nicknames of members whose highest role is
-> *below* the bot's highest role. If `/chmod` reports it couldn't change your
+> *below* the bot's highest role. If `/mode` reports it couldn't change your
 > nickname, that role ordering (or a missing permission) is almost always why.
 
 ## Configuration
@@ -111,8 +116,8 @@ ${XDG_STATE_HOME:-$HOME/.local/state}/by-your-command/
 ├── logs/
 │   ├── bot.log             # bot stdout/stderr
 │   └── update.log          # nightly refresh log
-└── chmod/
-    └── modes.json          # /chmod mode state
+└── mode/
+    └── modes.json          # /mode mode state
 ```
 
 ## Project layout
@@ -134,10 +139,11 @@ ${XDG_STATE_HOME:-$HOME/.local/state}/by-your-command/
 │   ├── utils.py             # small, unit-tested helpers
 │   └── commands/            # ← one file per slash command (auto-discovered)
 │       ├── __init__.py          # package docstring (auto-discovery)
-│       ├── chmod.py             # /chmod command cog + on/off/swap routing
-│       ├── chmod_maintenance.py # first-boot scan + periodic expiry sweep
-│       ├── chmod_state.py       # persistent state model (load/save/normalize/migrate)
-│       ├── showmymode.py        # deprecated /showmymode shim over chmod's core
+│       ├── mode.py              # /mode command cog + on/off/swap routing
+│       ├── mode_maintenance.py  # first-boot scan + periodic expiry sweep
+│       ├── mode_state.py        # persistent state model (load/save/normalize/migrate)
+│       ├── listenmode.py        # /listenmode wrapper (always 🙊, tap to swap)
+│       ├── showmymode.py        # deprecated /showmymode shim over mode's core
 │       └── tfurl.py
 └── tests/                   # unit + command-level tests (fakes, no network)
 ```
@@ -166,7 +172,7 @@ async def setup(bot):
 ```
 
 Each action is an `async` function taking the bot. Use `state.JSONStore("mycommand")`
-for any state it needs to persist. This is exactly how `/chmod` implements its
+for any state it needs to persist. This is exactly how `/mode` implements its
 auto-expiring marker.
 
 ## Design decisions
@@ -177,7 +183,7 @@ auto-expiring marker.
 - **One file per command, auto-discovered.** Commands are discord.py *cogs* loaded
   via `pkgutil.iter_modules` + `load_extension`, so the core never hardcodes a
   command list. This was the biggest gap in the legacy code (one 289-line file).
-- **`/chmod`'s timeout is real and survives restarts.** The legacy `timer`
+- **`/mode`'s timeout is real and survives restarts.** The legacy `timer`
   parameter was never implemented. Here the expiry is backed by a JSON state file and
   enforced by an in-process sweep (every 15 minutes), so the nightly restart can't
   lose track of pending removals. On the very first run (no state file yet), a

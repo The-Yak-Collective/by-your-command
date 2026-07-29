@@ -18,17 +18,17 @@ from bot import state
 
 @pytest.fixture
 def isolated_store(tmp_path, monkeypatch):
-    """Point /chmod's module-level store at a throwaway directory.
+    """Point /mode's module-level store at a throwaway directory.
 
     Creates a fresh JSONStore under a temp XDG_STATE_HOME and patches
-    ``chmod_state.store`` so all state operations (including the maintenance
+    ``mode_state.store`` so all state operations (including the maintenance
     sweep) land in the isolated directory.
     """
-    from bot.commands import chmod_state
+    from bot.commands import mode_state
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     monkeypatch.setattr(
-        chmod_state, "store", state.JSONStore(chmod_state.STATE_NAMESPACE)
+        mode_state, "store", state.JSONStore(mode_state.STATE_NAMESPACE)
     )
 
 

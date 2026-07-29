@@ -1,8 +1,8 @@
-"""Tests for the deprecated /showmymode shim: it still works AND nudge-to-/chmod.
+"""Tests for the deprecated /showmymode shim: it still works AND nudge-to-/listenmode.
 
-The shared on/off logic is covered by test_chmod_command.py; here we only assert the
+The shared on/off logic is covered by test_mode_command.py; here we only assert the
 shim's own concerns — that invoking it runs the mode change and then sends a private
-deprecation followup pointing at /chmod — using fakes for the member and interaction.
+deprecation followup pointing at /listenmode — using fakes for the member and interaction.
 """
 
 import asyncio
@@ -71,7 +71,7 @@ def test_showmymode_on_marks_nick_and_sends_deprecation(isolated_store):
     assert interaction.followup.messages
     msg, followup_eph = interaction.followup.messages[-1]
     assert followup_eph is True
-    assert "/chmod" in msg
+    assert "/listenmode" in msg
 
 
 def test_showmymode_off_restores_nick_and_sends_deprecation(isolated_store):
@@ -88,7 +88,7 @@ def test_showmymode_off_restores_nick_and_sends_deprecation(isolated_store):
     assert member.nick == "Bob"  # restored
     assert interaction.response.messages[-1][0] == "🙊 mode off."
     assert interaction.followup.messages
-    assert "/chmod" in interaction.followup.messages[-1][0]
+    assert "/listenmode" in interaction.followup.messages[-1][0]
 
 
 def test_showmymode_refuses_use_outside_a_server(isolated_store):
